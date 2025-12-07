@@ -7,6 +7,7 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 ## [Unreleased]
 ### Added
 - Unity smoke tests under `test/test_esp_date` to cover arithmetic, formatting, and parsing flows on-device.
+- Documented both installation paths (manual zip drop-in and PlatformIO `lib_deps` GitHub URL) in the README Getting Started section.
 
 ### Fixed
 - Seeded the CI Arduino CLI setup with the ESP32 board manager URL so core installs succeed on clean runners.

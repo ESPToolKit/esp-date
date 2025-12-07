@@ -19,7 +19,14 @@ ESPDate is a tiny C++17 helper for ESP32 projects that makes working with dates 
 ESPDate does **not** configure SNTP or time zones. You remain in control of how system time is synchronised; ESPDate only makes it easier to work with once it is set.
 
 ## Getting Started
-Install by copying the library into your PlatformIO `lib/` folder, Arduino IDE `libraries/` folder, or add it as a component in an ESP-IDF project. Then include the umbrella header:
+Install one of two ways:
+- Download the repository zip from GitHub, extract it, and drop the folder into your PlatformIO `lib/` directory, Arduino IDE `libraries/` directory, or add it as an ESP-IDF component.
+- Add the public GitHub URL to `lib_deps` in `platformio.ini` so PlatformIO fetches it for you:
+  ```
+  lib_deps = https://github.com/ESPToolKit/esp-date.git
+  ```
+
+Then include the umbrella header:
 
 ```cpp
 #include <Arduino.h>
