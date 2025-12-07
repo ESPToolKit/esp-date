@@ -2,7 +2,9 @@
 
 #include <cstring>
 
-static_assert(sizeof(time_t) >= 8, "ESPDate assumes 64-bit time_t on the target platform.");
+#if defined(__SIZEOF_TIME_T__) && __SIZEOF_TIME_T__ < 8
+#warning "ESPDate detected 32-bit time_t; dates beyond 2038 may overflow."
+#endif
 
 namespace {
 constexpr int64_t kSecondsPerMinute = 60;

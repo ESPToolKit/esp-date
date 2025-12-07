@@ -228,7 +228,7 @@ DateTime nextBilling = date.addMonths(thisBilling, 1);
 - Leap seconds are treated like 60th seconds in parsing; they are not modeled beyond that.
 - `isSameDay` compares the UTC calendar day. Use `startOfDayLocal` / `endOfDayLocal` if you need local-day comparisons.
 - The library avoids dynamic allocations and exceptions; formatting returns `false` if buffers are too small or time conversion fails.
-- ESP32 toolchains ship a 64-bit `time_t`; ESPDate assumes that width (there is a `static_assert` to catch 32-bit time_t).
+- ESP32 toolchains typically ship a 64-bit `time_t`; on 32-bit `time_t` toolchains dates beyond 2038 may overflow (a compile-time warning is emitted).
 
 ## Restrictions
 - ESP32 + FreeRTOS (Arduino-ESP32 or ESP-IDF) with C++17 enabled.

@@ -12,7 +12,7 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 
 ### Fixed
 - Seeded the CI Arduino CLI setup with the ESP32 board manager URL so core installs succeed on clean runners.
-- Clarified date arithmetic/difference semantics in README and asserted 64-bit `time_t` expectation.
+- Clarified date arithmetic/difference semantics in README and downgraded the `time_t` width check to a warning for 32-bit toolchains.
 
 ## [0.1.0] - 2025-12-07
 ### Added
