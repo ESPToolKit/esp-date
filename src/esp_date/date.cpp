@@ -2,6 +2,8 @@
 
 #include <cstring>
 
+static_assert(sizeof(time_t) >= 8, "ESPDate assumes 64-bit time_t on the target platform.");
+
 namespace {
 constexpr int64_t kSecondsPerMinute = 60;
 constexpr int64_t kSecondsPerHour = 60 * kSecondsPerMinute;
@@ -129,6 +131,38 @@ DateTime ESPDate::now() const {
 
 DateTime ESPDate::fromUnixSeconds(int64_t seconds) const {
   return DateTime{seconds};
+}
+
+DateTime ESPDate::fromUtc(int year, int month, int day, int hour, int minute, int second) const {
+  if (!validHms(hour, minute, second) || month < 1 || month > 12 || year < 0 || year > 9999) {
+    return DateTime{};
+  }
+  const int clampedDay = clampDay(year, month, day, *this);
+  tm t{};
+  t.tm_year = year - 1900;
+  t.tm_mon = month - 1;
+  t.tm_mday = clampedDay;
+  t.tm_hour = hour;
+  t.tm_min = minute;
+  t.tm_sec = second;
+  t.tm_isdst = 0;
+  return fromUtcTm(t);
+}
+
+DateTime ESPDate::fromLocal(int year, int month, int day, int hour, int minute, int second) const {
+  if (!validHms(hour, minute, second) || month < 1 || month > 12 || year < 0 || year > 9999) {
+    return DateTime{};
+  }
+  const int clampedDay = clampDay(year, month, day, *this);
+  tm t{};
+  t.tm_year = year - 1900;
+  t.tm_mon = month - 1;
+  t.tm_mday = clampedDay;
+  t.tm_hour = hour;
+  t.tm_min = minute;
+  t.tm_sec = second;
+  t.tm_isdst = -1;  // let the runtime figure DST
+  return fromLocalTm(t);
 }
 
 int64_t ESPDate::toUnixSeconds(const DateTime& dt) const {
@@ -377,6 +411,32 @@ DateTime ESPDate::endOfMonthLocal(const DateTime& dt) const {
   return subSeconds(nextMonth, 1);
 }
 
+DateTime ESPDate::startOfYearUtc(const DateTime& dt) const {
+  tm t{};
+  if (!toUtcTm(dt, t)) {
+    return dt;
+  }
+  t.tm_mon = 0;
+  t.tm_mday = 1;
+  t.tm_hour = 0;
+  t.tm_min = 0;
+  t.tm_sec = 0;
+  return fromUtcTm(t);
+}
+
+DateTime ESPDate::startOfYearLocal(const DateTime& dt) const {
+  tm t{};
+  if (!toLocalTm(dt, t)) {
+    return dt;
+  }
+  t.tm_mon = 0;
+  t.tm_mday = 1;
+  t.tm_hour = 0;
+  t.tm_min = 0;
+  t.tm_sec = 0;
+  return fromLocalTm(t);
+}
+
 DateTime ESPDate::setTimeOfDayLocal(const DateTime& dt, int hour, int minute, int second) const {
   if (!validHms(hour, minute, second)) {
     return dt;
@@ -403,6 +463,32 @@ DateTime ESPDate::setTimeOfDayUtc(const DateTime& dt, int hour, int minute, int 
   t.tm_min = minute;
   t.tm_sec = second;
   return fromUtcTm(t);
+}
+
+DateTime ESPDate::nextDailyAtLocal(int hour, int minute, int second, const DateTime& from) const {
+  if (!validHms(hour, minute, second)) {
+    return from;
+  }
+  DateTime candidate = setTimeOfDayLocal(from, hour, minute, second);
+  if (!isAfter(from, candidate)) {
+    return candidate;
+  }
+  DateTime nextDay = addDays(from, 1);
+  return setTimeOfDayLocal(nextDay, hour, minute, second);
+}
+
+DateTime ESPDate::nextWeekdayAtLocal(int weekday, int hour, int minute, int second, const DateTime& from) const {
+  if (!validHms(hour, minute, second) || weekday < 0 || weekday > 6) {
+    return from;
+  }
+  const int current = getWeekdayLocal(from);
+  int daysAhead = (weekday - current + 7) % 7;
+  DateTime candidateDay = addDays(from, daysAhead);
+  DateTime candidate = setTimeOfDayLocal(candidateDay, hour, minute, second);
+  if (daysAhead == 0 && isAfter(from, candidate)) {
+    candidate = setTimeOfDayLocal(addDays(from, 7), hour, minute, second);
+  }
+  return candidate;
 }
 
 int ESPDate::getYearLocal(const DateTime& dt) const {

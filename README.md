@@ -91,6 +91,8 @@ public:
     // Time sources
     DateTime now() const;
     DateTime fromUnixSeconds(int64_t seconds) const;
+    DateTime fromUtc(int year, int month, int day, int hour = 0, int minute = 0, int second = 0) const;
+    DateTime fromLocal(int year, int month, int day, int hour = 0, int minute = 0, int second = 0) const;
     int64_t toUnixSeconds(const DateTime &dt) const;
 
     // Arithmetic (UTC-backed)
@@ -142,8 +144,12 @@ public:
     DateTime endOfDayLocal(const DateTime &dt) const;
     DateTime startOfMonthLocal(const DateTime &dt) const;
     DateTime endOfMonthLocal(const DateTime &dt) const;
+    DateTime startOfYearUtc(const DateTime &dt) const;
+    DateTime startOfYearLocal(const DateTime &dt) const;
     DateTime setTimeOfDayLocal(const DateTime &dt, int hour, int minute, int second) const;
     DateTime setTimeOfDayUtc(const DateTime &dt, int hour, int minute, int second) const;
+    DateTime nextDailyAtLocal(int hour, int minute, int second, const DateTime &from) const;
+    DateTime nextWeekdayAtLocal(int weekday, int hour, int minute, int second, const DateTime &from) const;
 
     int getYearUtc(const DateTime &dt) const;
     int getMonthUtc(const DateTime &dt) const;   // 1..12
@@ -217,9 +223,12 @@ DateTime nextBilling = date.addMonths(thisBilling, 1);
 ## Gotchas
 - ESPDate never configures SNTP or timezone rules; ensure the device clock is set before calling `now()`.
 - All arithmetic and comparisons are UTC-first. Local helpers rely on the current process TZ (`setenv("TZ", ...)`, `tzset()`); make sure that matches your deployment.
+- Month/year arithmetic clamps to the last valid day of the target month (e.g., Jan 31 + 1 month → Feb 28/29; Feb 29 - 1 year → Feb 28).
+- `differenceInDays` is purely `seconds / 86400` truncated toward zero, not a calendar-boundary delta.
 - Leap seconds are treated like 60th seconds in parsing; they are not modeled beyond that.
 - `isSameDay` compares the UTC calendar day. Use `startOfDayLocal` / `endOfDayLocal` if you need local-day comparisons.
 - The library avoids dynamic allocations and exceptions; formatting returns `false` if buffers are too small or time conversion fails.
+- ESP32 toolchains ship a 64-bit `time_t`; ESPDate assumes that width (there is a `static_assert` to catch 32-bit time_t).
 
 ## Restrictions
 - ESP32 + FreeRTOS (Arduino-ESP32 or ESP-IDF) with C++17 enabled.

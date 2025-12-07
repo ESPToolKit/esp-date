@@ -8,9 +8,11 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 ### Added
 - Unity smoke tests under `test/test_esp_date` to cover arithmetic, formatting, and parsing flows on-device.
 - Documented both installation paths (manual zip drop-in and PlatformIO `lib_deps` GitHub URL) in the README Getting Started section.
+- Convenience constructors (`fromUtc`, `fromLocal`), start-of-year helpers, and scheduler-friendly helpers (`nextDailyAtLocal`, `nextWeekdayAtLocal`) to simplify consumer code.
 
 ### Fixed
 - Seeded the CI Arduino CLI setup with the ESP32 board manager URL so core installs succeed on clean runners.
+- Clarified date arithmetic/difference semantics in README and asserted 64-bit `time_t` expectation.
 
 ## [0.1.0] - 2025-12-07
 ### Added

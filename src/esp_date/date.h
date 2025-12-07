@@ -26,6 +26,8 @@ class ESPDate {
  public:
   DateTime now() const;
   DateTime fromUnixSeconds(int64_t seconds) const;
+  DateTime fromUtc(int year, int month, int day, int hour = 0, int minute = 0, int second = 0) const;
+  DateTime fromLocal(int year, int month, int day, int hour = 0, int minute = 0, int second = 0) const;
   int64_t toUnixSeconds(const DateTime& dt) const;
 
   // Arithmetic relative to a provided DateTime
@@ -86,9 +88,13 @@ class ESPDate {
   DateTime endOfDayLocal(const DateTime& dt) const;
   DateTime startOfMonthLocal(const DateTime& dt) const;
   DateTime endOfMonthLocal(const DateTime& dt) const;
+  DateTime startOfYearUtc(const DateTime& dt) const;
+  DateTime startOfYearLocal(const DateTime& dt) const;
 
   DateTime setTimeOfDayLocal(const DateTime& dt, int hour, int minute, int second) const;
   DateTime setTimeOfDayUtc(const DateTime& dt, int hour, int minute, int second) const;
+  DateTime nextDailyAtLocal(int hour, int minute, int second, const DateTime& from) const;
+  DateTime nextWeekdayAtLocal(int weekday, int hour, int minute, int second, const DateTime& from) const;
 
   int getYearLocal(const DateTime& dt) const;
   int getMonthLocal(const DateTime& dt) const;   // 1..12
