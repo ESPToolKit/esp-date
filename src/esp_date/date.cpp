@@ -1,0 +1,600 @@
+#include "date.h"
+
+#include <cstring>
+
+namespace {
+constexpr int64_t kSecondsPerMinute = 60;
+constexpr int64_t kSecondsPerHour = 60 * kSecondsPerMinute;
+constexpr int64_t kSecondsPerDay = 24 * kSecondsPerHour;
+
+int64_t daysFromCivil(int year, unsigned month, unsigned day) {
+  year -= month <= 2;
+  const int era = (year >= 0 ? year : year - 399) / 400;
+  const unsigned yoe = static_cast<unsigned>(year - era * 400);
+  const unsigned doy = (153 * (month + (month > 2 ? -3 : 9)) + 2) / 5 + day - 1;
+  const unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  return era * 146097 + static_cast<int>(doe) - 719468;
+}
+
+int64_t timegm64(const tm& t) {
+  const int year = t.tm_year + 1900;
+  const unsigned month = static_cast<unsigned>(t.tm_mon + 1);
+  const unsigned day = static_cast<unsigned>(t.tm_mday);
+  const int64_t days = daysFromCivil(year, month, day);
+  return days * kSecondsPerDay + static_cast<int64_t>(t.tm_hour) * kSecondsPerHour +
+         static_cast<int64_t>(t.tm_min) * kSecondsPerMinute + static_cast<int64_t>(t.tm_sec);
+}
+
+bool toUtcTm(const DateTime& dt, tm& out) {
+  time_t raw = static_cast<time_t>(dt.epochSeconds);
+  return gmtime_r(&raw, &out) != nullptr;
+}
+
+bool toLocalTm(const DateTime& dt, tm& out) {
+  time_t raw = static_cast<time_t>(dt.epochSeconds);
+  return localtime_r(&raw, &out) != nullptr;
+}
+
+DateTime fromUtcTm(const tm& t) {
+  return DateTime{timegm64(t)};
+}
+
+DateTime fromLocalTm(tm& t) {
+  time_t local = mktime(&t);
+  return DateTime{static_cast<int64_t>(local)};
+}
+
+bool parseIntSlice(const char* str, size_t len, int min, int max, int& out) {
+  int value = 0;
+  for (size_t i = 0; i < len; ++i) {
+    if (str[i] < '0' || str[i] > '9') {
+      return false;
+    }
+    value = value * 10 + (str[i] - '0');
+  }
+  if (value < min || value > max) {
+    return false;
+  }
+  out = value;
+  return true;
+}
+
+bool validHms(int hour, int minute, int second) {
+  return hour >= 0 && hour < 24 && minute >= 0 && minute < 60 && second >= 0 && second <= 60;
+}
+
+int clampDay(int year, int month, int day, const ESPDate& date) {
+  const int maxDay = date.daysInMonth(year, month);
+  if (day > maxDay) {
+    return maxDay;
+  }
+  if (day < 1) {
+    return 1;
+  }
+  return day;
+}
+}  // namespace
+
+int DateTime::yearUtc() const {
+  tm t{};
+  if (!toUtcTm(*this, t)) {
+    return 0;
+  }
+  return t.tm_year + 1900;
+}
+
+int DateTime::monthUtc() const {
+  tm t{};
+  if (!toUtcTm(*this, t)) {
+    return 0;
+  }
+  return t.tm_mon + 1;
+}
+
+int DateTime::dayUtc() const {
+  tm t{};
+  if (!toUtcTm(*this, t)) {
+    return 0;
+  }
+  return t.tm_mday;
+}
+
+int DateTime::hourUtc() const {
+  tm t{};
+  if (!toUtcTm(*this, t)) {
+    return 0;
+  }
+  return t.tm_hour;
+}
+
+int DateTime::minuteUtc() const {
+  tm t{};
+  if (!toUtcTm(*this, t)) {
+    return 0;
+  }
+  return t.tm_min;
+}
+
+int DateTime::secondUtc() const {
+  tm t{};
+  if (!toUtcTm(*this, t)) {
+    return 0;
+  }
+  return t.tm_sec;
+}
+
+DateTime ESPDate::now() const {
+  return DateTime{static_cast<int64_t>(time(nullptr))};
+}
+
+DateTime ESPDate::fromUnixSeconds(int64_t seconds) const {
+  return DateTime{seconds};
+}
+
+int64_t ESPDate::toUnixSeconds(const DateTime& dt) const {
+  return dt.epochSeconds;
+}
+
+DateTime ESPDate::addSeconds(const DateTime& dt, int64_t seconds) const {
+  return DateTime{dt.epochSeconds + seconds};
+}
+
+DateTime ESPDate::addMinutes(const DateTime& dt, int64_t minutes) const {
+  return addSeconds(dt, minutes * kSecondsPerMinute);
+}
+
+DateTime ESPDate::addHours(const DateTime& dt, int64_t hours) const {
+  return addSeconds(dt, hours * kSecondsPerHour);
+}
+
+DateTime ESPDate::addDays(const DateTime& dt, int32_t days) const {
+  return addSeconds(dt, static_cast<int64_t>(days) * kSecondsPerDay);
+}
+
+DateTime ESPDate::addMonths(const DateTime& dt, int32_t months) const {
+  tm t{};
+  if (!toUtcTm(dt, t)) {
+    return dt;
+  }
+
+  int totalMonths = t.tm_mon + months;
+  int yearsDelta = totalMonths / 12;
+  int newMonth = totalMonths % 12;
+  if (newMonth < 0) {
+    newMonth += 12;
+    --yearsDelta;
+  }
+
+  t.tm_year += yearsDelta;
+  t.tm_mon = newMonth;
+  t.tm_mday = clampDay(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, *this);
+
+  return fromUtcTm(t);
+}
+
+DateTime ESPDate::addYears(const DateTime& dt, int32_t years) const {
+  tm t{};
+  if (!toUtcTm(dt, t)) {
+    return dt;
+  }
+  t.tm_year += years;
+  t.tm_mday = clampDay(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, *this);
+  return fromUtcTm(t);
+}
+
+DateTime ESPDate::subSeconds(const DateTime& dt, int64_t seconds) const {
+  return addSeconds(dt, -seconds);
+}
+
+DateTime ESPDate::subMinutes(const DateTime& dt, int64_t minutes) const {
+  return addMinutes(dt, -minutes);
+}
+
+DateTime ESPDate::subHours(const DateTime& dt, int64_t hours) const {
+  return addHours(dt, -hours);
+}
+
+DateTime ESPDate::subDays(const DateTime& dt, int32_t days) const {
+  return addDays(dt, -days);
+}
+
+DateTime ESPDate::subMonths(const DateTime& dt, int32_t months) const {
+  return addMonths(dt, -months);
+}
+
+DateTime ESPDate::subYears(const DateTime& dt, int32_t years) const {
+  return addYears(dt, -years);
+}
+
+DateTime ESPDate::addSeconds(int64_t seconds) const {
+  return addSeconds(now(), seconds);
+}
+
+DateTime ESPDate::addMinutes(int64_t minutes) const {
+  return addMinutes(now(), minutes);
+}
+
+DateTime ESPDate::addHours(int64_t hours) const {
+  return addHours(now(), hours);
+}
+
+DateTime ESPDate::addDays(int32_t days) const {
+  return addDays(now(), days);
+}
+
+DateTime ESPDate::addMonths(int32_t months) const {
+  return addMonths(now(), months);
+}
+
+DateTime ESPDate::addYears(int32_t years) const {
+  return addYears(now(), years);
+}
+
+DateTime ESPDate::subSeconds(int64_t seconds) const {
+  return subSeconds(now(), seconds);
+}
+
+DateTime ESPDate::subMinutes(int64_t minutes) const {
+  return subMinutes(now(), minutes);
+}
+
+DateTime ESPDate::subHours(int64_t hours) const {
+  return subHours(now(), hours);
+}
+
+DateTime ESPDate::subDays(int32_t days) const {
+  return subDays(now(), days);
+}
+
+DateTime ESPDate::subMonths(int32_t months) const {
+  return subMonths(now(), months);
+}
+
+DateTime ESPDate::subYears(int32_t years) const {
+  return subYears(now(), years);
+}
+
+int64_t ESPDate::differenceInSeconds(const DateTime& a, const DateTime& b) const {
+  return a.epochSeconds - b.epochSeconds;
+}
+
+int64_t ESPDate::differenceInMinutes(const DateTime& a, const DateTime& b) const {
+  return differenceInSeconds(a, b) / kSecondsPerMinute;
+}
+
+int64_t ESPDate::differenceInHours(const DateTime& a, const DateTime& b) const {
+  return differenceInSeconds(a, b) / kSecondsPerHour;
+}
+
+int64_t ESPDate::differenceInDays(const DateTime& a, const DateTime& b) const {
+  return differenceInSeconds(a, b) / kSecondsPerDay;
+}
+
+bool ESPDate::isBefore(const DateTime& a, const DateTime& b) const {
+  return a.epochSeconds < b.epochSeconds;
+}
+
+bool ESPDate::isAfter(const DateTime& a, const DateTime& b) const {
+  return a.epochSeconds > b.epochSeconds;
+}
+
+bool ESPDate::isEqual(const DateTime& a, const DateTime& b) const {
+  return a.epochSeconds == b.epochSeconds;
+}
+
+bool ESPDate::isSameDay(const DateTime& a, const DateTime& b) const {
+  return isEqual(startOfDayUtc(a), startOfDayUtc(b));
+}
+
+DateTime ESPDate::startOfDayUtc(const DateTime& dt) const {
+  tm t{};
+  if (!toUtcTm(dt, t)) {
+    return dt;
+  }
+  t.tm_hour = 0;
+  t.tm_min = 0;
+  t.tm_sec = 0;
+  return fromUtcTm(t);
+}
+
+DateTime ESPDate::endOfDayUtc(const DateTime& dt) const {
+  return addSeconds(startOfDayUtc(dt), kSecondsPerDay - 1);
+}
+
+DateTime ESPDate::startOfMonthUtc(const DateTime& dt) const {
+  tm t{};
+  if (!toUtcTm(dt, t)) {
+    return dt;
+  }
+  t.tm_mday = 1;
+  t.tm_hour = 0;
+  t.tm_min = 0;
+  t.tm_sec = 0;
+  return fromUtcTm(t);
+}
+
+DateTime ESPDate::endOfMonthUtc(const DateTime& dt) const {
+  DateTime start = startOfMonthUtc(dt);
+  DateTime nextMonth = addMonths(start, 1);
+  return subSeconds(nextMonth, 1);
+}
+
+int ESPDate::getYearUtc(const DateTime& dt) const {
+  return dt.yearUtc();
+}
+
+int ESPDate::getMonthUtc(const DateTime& dt) const {
+  return dt.monthUtc();
+}
+
+int ESPDate::getDayUtc(const DateTime& dt) const {
+  return dt.dayUtc();
+}
+
+int ESPDate::getWeekdayUtc(const DateTime& dt) const {
+  tm t{};
+  if (!toUtcTm(dt, t)) {
+    return 0;
+  }
+  return t.tm_wday;
+}
+
+DateTime ESPDate::startOfDayLocal(const DateTime& dt) const {
+  tm t{};
+  if (!toLocalTm(dt, t)) {
+    return dt;
+  }
+  t.tm_hour = 0;
+  t.tm_min = 0;
+  t.tm_sec = 0;
+  return fromLocalTm(t);
+}
+
+DateTime ESPDate::endOfDayLocal(const DateTime& dt) const {
+  return addSeconds(startOfDayLocal(dt), kSecondsPerDay - 1);
+}
+
+DateTime ESPDate::startOfMonthLocal(const DateTime& dt) const {
+  tm t{};
+  if (!toLocalTm(dt, t)) {
+    return dt;
+  }
+  t.tm_mday = 1;
+  t.tm_hour = 0;
+  t.tm_min = 0;
+  t.tm_sec = 0;
+  return fromLocalTm(t);
+}
+
+DateTime ESPDate::endOfMonthLocal(const DateTime& dt) const {
+  DateTime start = startOfMonthLocal(dt);
+  tm t{};
+  if (!toLocalTm(start, t)) {
+    return start;
+  }
+  t.tm_mon += 1;
+  DateTime nextMonth = fromLocalTm(t);
+  return subSeconds(nextMonth, 1);
+}
+
+DateTime ESPDate::setTimeOfDayLocal(const DateTime& dt, int hour, int minute, int second) const {
+  if (!validHms(hour, minute, second)) {
+    return dt;
+  }
+  tm t{};
+  if (!toLocalTm(dt, t)) {
+    return dt;
+  }
+  t.tm_hour = hour;
+  t.tm_min = minute;
+  t.tm_sec = second;
+  return fromLocalTm(t);
+}
+
+DateTime ESPDate::setTimeOfDayUtc(const DateTime& dt, int hour, int minute, int second) const {
+  if (!validHms(hour, minute, second)) {
+    return dt;
+  }
+  tm t{};
+  if (!toUtcTm(dt, t)) {
+    return dt;
+  }
+  t.tm_hour = hour;
+  t.tm_min = minute;
+  t.tm_sec = second;
+  return fromUtcTm(t);
+}
+
+int ESPDate::getYearLocal(const DateTime& dt) const {
+  tm t{};
+  if (!toLocalTm(dt, t)) {
+    return 0;
+  }
+  return t.tm_year + 1900;
+}
+
+int ESPDate::getMonthLocal(const DateTime& dt) const {
+  tm t{};
+  if (!toLocalTm(dt, t)) {
+    return 0;
+  }
+  return t.tm_mon + 1;
+}
+
+int ESPDate::getDayLocal(const DateTime& dt) const {
+  tm t{};
+  if (!toLocalTm(dt, t)) {
+    return 0;
+  }
+  return t.tm_mday;
+}
+
+int ESPDate::getWeekdayLocal(const DateTime& dt) const {
+  tm t{};
+  if (!toLocalTm(dt, t)) {
+    return 0;
+  }
+  return t.tm_wday;
+}
+
+bool ESPDate::isLeapYear(int year) const {
+  if (year % 4 != 0) {
+    return false;
+  }
+  if (year % 100 != 0) {
+    return true;
+  }
+  return (year % 400) == 0;
+}
+
+int ESPDate::daysInMonth(int year, int month) const {
+  static const int daysPerMonth[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  if (month < 1 || month > 12) {
+    return 0;
+  }
+  if (month == 2 && isLeapYear(year)) {
+    return 29;
+  }
+  return daysPerMonth[month - 1];
+}
+
+bool ESPDate::formatUtc(const DateTime& dt, ESPDateFormat style, char* outBuffer, size_t outSize) const {
+  const char* pattern = nullptr;
+  switch (style) {
+    case ESPDateFormat::Iso8601:
+      pattern = "%Y-%m-%dT%H:%M:%SZ";
+      break;
+    case ESPDateFormat::DateTime:
+      pattern = "%Y-%m-%d %H:%M:%S";
+      break;
+    case ESPDateFormat::Date:
+      pattern = "%Y-%m-%d";
+      break;
+    case ESPDateFormat::Time:
+      pattern = "%H:%M:%S";
+      break;
+  }
+  return formatWithPatternUtc(dt, pattern, outBuffer, outSize);
+}
+
+bool ESPDate::formatLocal(const DateTime& dt, ESPDateFormat style, char* outBuffer, size_t outSize) const {
+  const char* pattern = nullptr;
+  switch (style) {
+    case ESPDateFormat::Iso8601:
+      pattern = "%Y-%m-%dT%H:%M:%S%z";
+      break;
+    case ESPDateFormat::DateTime:
+      pattern = "%Y-%m-%d %H:%M:%S";
+      break;
+    case ESPDateFormat::Date:
+      pattern = "%Y-%m-%d";
+      break;
+    case ESPDateFormat::Time:
+      pattern = "%H:%M:%S";
+      break;
+  }
+  return formatWithPatternLocal(dt, pattern, outBuffer, outSize);
+}
+
+bool ESPDate::formatWithPatternUtc(const DateTime& dt, const char* pattern, char* outBuffer, size_t outSize) const {
+  if (!pattern || !outBuffer || outSize == 0) {
+    return false;
+  }
+  tm t{};
+  if (!toUtcTm(dt, t)) {
+    return false;
+  }
+  size_t written = strftime(outBuffer, outSize, pattern, &t);
+  return written > 0;
+}
+
+bool ESPDate::formatWithPatternLocal(const DateTime& dt, const char* pattern, char* outBuffer, size_t outSize) const {
+  if (!pattern || !outBuffer || outSize == 0) {
+    return false;
+  }
+  tm t{};
+  if (!toLocalTm(dt, t)) {
+    return false;
+  }
+  size_t written = strftime(outBuffer, outSize, pattern, &t);
+  return written > 0;
+}
+
+ESPDate::ParseResult ESPDate::parseIso8601Utc(const char* str) const {
+  ParseResult result{false, DateTime{}};
+  if (!str) {
+    return result;
+  }
+  const size_t len = std::strlen(str);
+  if (len != 20 || str[4] != '-' || str[7] != '-' || (str[10] != 'T' && str[10] != 't') ||
+      str[13] != ':' || str[16] != ':' || (str[19] != 'Z' && str[19] != 'z')) {
+    return result;
+  }
+
+  int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+  if (!parseIntSlice(str, 4, 0, 9999, year) ||
+      !parseIntSlice(str + 5, 2, 1, 12, month) ||
+      !parseIntSlice(str + 8, 2, 1, 31, day) ||
+      !parseIntSlice(str + 11, 2, 0, 23, hour) ||
+      !parseIntSlice(str + 14, 2, 0, 59, minute) ||
+      !parseIntSlice(str + 17, 2, 0, 60, second)) {
+    return result;
+  }
+
+  const int maxDay = daysInMonth(year, month);
+  if (day > maxDay) {
+    return result;
+  }
+
+  tm t{};
+  t.tm_year = year - 1900;
+  t.tm_mon = month - 1;
+  t.tm_mday = day;
+  t.tm_hour = hour;
+  t.tm_min = minute;
+  t.tm_sec = second;
+  t.tm_isdst = 0;
+
+  result.ok = true;
+  result.value = fromUtcTm(t);
+  return result;
+}
+
+ESPDate::ParseResult ESPDate::parseDateTimeLocal(const char* str) const {
+  ParseResult result{false, DateTime{}};
+  if (!str) {
+    return result;
+  }
+  const size_t len = std::strlen(str);
+  if (len != 19 || str[4] != '-' || str[7] != '-' || str[10] != ' ' || str[13] != ':' || str[16] != ':') {
+    return result;
+  }
+
+  int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+  if (!parseIntSlice(str, 4, 0, 9999, year) ||
+      !parseIntSlice(str + 5, 2, 1, 12, month) ||
+      !parseIntSlice(str + 8, 2, 1, 31, day) ||
+      !parseIntSlice(str + 11, 2, 0, 23, hour) ||
+      !parseIntSlice(str + 14, 2, 0, 59, minute) ||
+      !parseIntSlice(str + 17, 2, 0, 60, second)) {
+    return result;
+  }
+
+  const int maxDay = daysInMonth(year, month);
+  if (day > maxDay) {
+    return result;
+  }
+
+  tm t{};
+  t.tm_year = year - 1900;
+  t.tm_mon = month - 1;
+  t.tm_mday = day;
+  t.tm_hour = hour;
+  t.tm_min = minute;
+  t.tm_sec = second;
+  t.tm_isdst = -1;  // let the runtime decide
+
+  result.ok = true;
+  result.value = fromLocalTm(t);
+  return result;
+}

@@ -1,0 +1,38 @@
+{
+  "name": "ESPDate",
+  "version": "0.1.0",
+  "description": "Tiny C++17 DateTime helper for ESP32 firmware (Arduino or ESP-IDF)",
+  "keywords": [
+    "esp32",
+    "arduino",
+    "time",
+    "date",
+    "datetime"
+  ],
+  "homepage": "https://github.com/ESPToolKit/esp-date",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ESPToolKit/esp-date.git"
+  },
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "zekageri"
+    }
+  ],
+  "frameworks": [
+    "arduino"
+  ],
+  "platforms": [
+    "espressif32"
+  ],
+  "dependencies": [],
+  "headers": [
+    "ESPDate.h"
+  ],
+  "build": {
+    "flags": [
+      "-std=gnu++17"
+    ]
+  }
+}
