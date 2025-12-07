@@ -220,7 +220,15 @@ DateTime nextBilling = date.addMonths(thisBilling, 1);
 
 ## Tests
 - CI builds examples via PlatformIO and Arduino CLI on common ESP32 boards to ensure the API compiles cleanly under ArduinoJson-installed environments.
+- When using Arduino CLI locally, mirror CI by priming the ESP32 board manager URL before installing the core:
+  ```bash
+  arduino-cli config init --overwrite
+  arduino-cli config add board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+  arduino-cli core update-index --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+  arduino-cli core install esp32:esp32@3.3.3 --additional-urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+  ```
 - You can also run `pio ci examples/basic_date --board esp32dev --project-option "build_flags=-std=gnu++17"` locally.
+- Unity smoke tests live in `test/test_esp_date`; run them on hardware with `pio test -e esp32dev` (or your board environment) to exercise arithmetic, formatting, and parsing routines.
 
 ## License
 MIT — see [LICENSE.md](LICENSE.md).

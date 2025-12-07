@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 The format follows Keep a Changelog and the project adheres to Semantic Versioning.
 
 ## [Unreleased]
+### Added
+- Unity smoke tests under `test/test_esp_date` to cover arithmetic, formatting, and parsing flows on-device.
+
+### Fixed
+- Seeded the CI Arduino CLI setup with the ESP32 board manager URL so core installs succeed on clean runners.
 
 ## [0.1.0] - 2025-12-07
 ### Added
