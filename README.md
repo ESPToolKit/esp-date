@@ -220,6 +220,27 @@ DateTime thisBilling = date.setTimeOfDayLocal(
 DateTime nextBilling = date.addMonths(thisBilling, 1);
 ```
 
+## Scheduler-friendly helpers
+- Compute the next local run at HH:MM:SS, rolling to tomorrow if needed:
+
+```cpp
+DateTime now = date.now();
+DateTime nextRun = date.nextDailyAtLocal(3, 0, 0, now); // next 03:00 local
+```
+
+- Compute the next Monday 09:30 local (weekday: 1 = Monday):
+
+```cpp
+DateTime nextMonday = date.nextWeekdayAtLocal(1, 9, 30, 0, now);
+```
+
+- Truncate to the start of a period:
+
+```cpp
+DateTime startDay  = date.startOfDayLocal(now);
+DateTime startYear = date.startOfYearLocal(now);
+```
+
 ## Gotchas
 - ESPDate never configures SNTP or timezone rules; ensure the device clock is set before calling `now()`.
 - All arithmetic and comparisons are UTC-first. Local helpers rely on the current process TZ (`setenv("TZ", ...)`, `tzset()`); make sure that matches your deployment.
@@ -229,6 +250,7 @@ DateTime nextBilling = date.addMonths(thisBilling, 1);
 - `isSameDay` compares the UTC calendar day. Use `startOfDayLocal` / `endOfDayLocal` if you need local-day comparisons.
 - The library avoids dynamic allocations and exceptions; formatting returns `false` if buffers are too small or time conversion fails.
 - ESP32 toolchains typically ship a 64-bit `time_t`; on 32-bit `time_t` toolchains dates beyond 2038 may overflow (a compile-time warning is emitted).
+- `differenceInDays(a, b)` is defined as `floor((a - b) / 86400)` on UTC seconds, not calendar boundaries.
 
 ## Restrictions
 - ESP32 + FreeRTOS (Arduino-ESP32 or ESP-IDF) with C++17 enabled.
