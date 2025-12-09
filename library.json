@@ -1,6 +1,6 @@
 {
   "name": "ESPDate",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "description": "Tiny C++17 DateTime helper for ESP32 firmware (Arduino or ESP-IDF)",
   "keywords": [
     "esp32",

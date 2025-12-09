@@ -5,6 +5,8 @@ All notable changes to this project are documented in this file.
 The format follows Keep a Changelog and the project adheres to Semantic Versioning.
 
 ## [Unreleased]
+
+## [1.0.1] - 2025-02-12
 ### Added
 - Sunrise/sunset helpers with optional constructor config (lat/lon/TZ), DST-aware TZ-string support, explicit parameter overloads, and `isDay` convenience checks (with optional offsets).
 - Unity smoke tests under `test/test_esp_date` to cover arithmetic, formatting, parsing, and sun-cycle flows on-device.
@@ -32,5 +34,6 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 ### Documentation
 - Authored the README describing goals, feature overview, examples, gotchas, and ESPToolKit links.
 
-[Unreleased]: https://github.com/ESPToolKit/esp-date/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ESPToolKit/esp-date/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/ESPToolKit/esp-date/compare/v0.1.0...v1.0.1
 [0.1.0]: https://github.com/ESPToolKit/esp-date/releases/tag/v0.1.0
