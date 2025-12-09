@@ -2,6 +2,21 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <string>
+
+#if defined(__has_include)
+#  if __has_include(<esp_sntp.h>)
+#    include <esp_sntp.h>
+#    define ESPDATE_HAS_CONFIG_TZ_TIME 1
+#  elif __has_include(<esp_netif_sntp.h>)
+#    include <esp_netif_sntp.h>
+#    define ESPDATE_HAS_CONFIG_TZ_TIME 1
+#  else
+#    define ESPDATE_HAS_CONFIG_TZ_TIME 0
+#  endif
+#else
+#  define ESPDATE_HAS_CONFIG_TZ_TIME 0
+#endif
 
 #if defined(__SIZEOF_TIME_T__) && __SIZEOF_TIME_T__ < 8
 #warning "ESPDate detected 32-bit time_t; dates beyond 2038 may overflow."
@@ -78,6 +93,65 @@ int clampDay(int year, int month, int day, const ESPDate& date) {
   }
   return day;
 }
+
+struct ScopedTz {
+  explicit ScopedTz(const char* tz) : changed(false) {
+    if (tz && tz[0] != '\0') {
+      const char* current = getenv("TZ");
+      if (!current || std::strcmp(current, tz) != 0) {
+        if (current) {
+          previous.assign(current);
+        }
+        setenv("TZ", tz, 1);
+        tzset();
+        changed = true;
+      }
+    }
+  }
+
+  ~ScopedTz() {
+    if (!changed) {
+      return;
+    }
+    if (previous.empty()) {
+      unsetenv("TZ");
+    } else {
+      setenv("TZ", previous.c_str(), 1);
+    }
+    tzset();
+  }
+
+  std::string previous;
+  bool changed;
+};
+
+bool isDstActiveFor(const DateTime& dt, const char* timeZone) {
+  ScopedTz scoped(timeZone);
+  time_t raw = static_cast<time_t>(dt.epochSeconds);
+  tm local{};
+  if (localtime_r(&raw, &local) == nullptr) {
+    return false;
+  }
+
+  if (local.tm_isdst > 0) {
+    return true;
+  }
+  if (local.tm_isdst == 0) {
+    return false;
+  }
+
+  local.tm_isdst = -1;
+  time_t normalized = mktime(&local);
+  if (normalized == static_cast<time_t>(-1)) {
+    return false;
+  }
+
+  tm normalizedTm{};
+  if (localtime_r(&normalized, &normalizedTm) == nullptr) {
+    return false;
+  }
+  return normalizedTm.tm_isdst > 0;
+}
 }  // namespace
 
 int DateTime::yearUtc() const {
@@ -132,10 +206,19 @@ ESPDate::ESPDate() = default;
 
 ESPDate::ESPDate(const ESPDateConfig& config)
     : latitude_(config.latitude), longitude_(config.longitude), hasLocation_(true) {
-  if (config.timeZone && config.timeZone[0] != '\0') {
+  const bool hasTz = config.timeZone && config.timeZone[0] != '\0';
+  const bool hasNtp = config.ntpServer && config.ntpServer[0] != '\0';
+  if (hasTz) {
     timeZone_ = config.timeZone;
-    setenv("TZ", timeZone_.c_str(), 1);
-    tzset();
+#if ESPDATE_HAS_CONFIG_TZ_TIME
+    if (hasNtp) {
+      configTzTime(timeZone_.c_str(), config.ntpServer, nullptr, nullptr);
+    } else
+#endif
+    {
+      setenv("TZ", timeZone_.c_str(), 1);
+      tzset();
+    }
   }
 }
 
@@ -181,6 +264,30 @@ DateTime ESPDate::fromLocal(int year, int month, int day, int hour, int minute, 
 
 int64_t ESPDate::toUnixSeconds(const DateTime& dt) const {
   return dt.epochSeconds;
+}
+
+bool ESPDate::isDstActive() const {
+  return isDstActive(now());
+}
+
+bool ESPDate::isDstActive(const DateTime& dt) const {
+  return isDstActive(dt, nullptr);
+}
+
+bool ESPDate::isDstActive(const char* timeZone) const {
+  return isDstActive(now(), timeZone);
+}
+
+bool ESPDate::isDstActive(const DateTime& dt, const char* timeZone) const {
+  const char* tz = timeZone;
+  if (!tz || tz[0] == '\0') {
+    if (!timeZone_.empty()) {
+      tz = timeZone_.c_str();
+    } else {
+      tz = nullptr;
+    }
+  }
+  return isDstActiveFor(dt, tz);
 }
 
 DateTime ESPDate::addSeconds(const DateTime& dt, int64_t seconds) const {

@@ -15,11 +15,13 @@ ESPDate is a tiny C++17 helper for ESP32 projects that makes working with dates 
 - **Calendar helpers**: `startOfDay*`, `endOfDay*`, `startOfMonth*`, `endOfMonth*`, `isLeapYear`, `daysInMonth`, getters for year/month/day/weekday.
 - **Formatting / parsing**: ISO-8601 and `YYYY-MM-DD HH:MM:SS` helpers, plus `strftime`-style patterns for UTC or local time.
 - **Sunrise / sunset**: compute daily sun times from lat/lon using numeric offsets or POSIX TZ strings (auto-DST aware).
+- **DST detection**: `isDstActive` reports whether daylight saving time applies using the stored TZ, an explicit POSIX TZ string, or the current system TZ.
+- **Optional NTP bootstrap**: when both `timeZone` and `ntpServer` are provided in `ESPDateConfig`, the constructor calls `configTzTime` to set TZ and start SNTP.
 - **Friendly month names**: `monthName(int|DateTime)` returns `"January"` … `"December"` for quick labels.
 - **Class-based API**: everything hangs off a single `ESPDate` instance; no global namespace clutter.
 - **Lightweight & portable**: C++17, header-first public API; relies only on standard C time functions and the system clock (`time()`).
 
-ESPDate does **not** configure SNTP. If you pass a POSIX TZ string in the optional constructor config, ESPDate will set it for you; otherwise you remain in control of time-zone setup and system clock sync.
+ESPDate does not configure SNTP by default. If you pass both a POSIX TZ string and an `ntpServer` in the optional constructor config, ESPDate will call `configTzTime` to set the TZ and start SNTP for you; otherwise you remain in control of time-zone setup and system clock sync.
 
 ## Getting Started
 Install one of two ways:
@@ -35,9 +37,10 @@ Then include the umbrella header:
 #include <Arduino.h>
 #include <ESPDate.h>
 
-static ESPDate date;  // module-style instance
-// Optional: bind default coordinates + TZ for sunrise/sunset
-static ESPDate solar(ESPDateConfig{47.4979f, 19.0402f, "CET-1CEST,M3.5.0/2,M10.5.0/3"});
+// Optional: provide TZ + NTP to auto-call configTzTime (ensure WiFi is connected first)
+static ESPDate date(ESPDateConfig{0.0f, 0.0f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org"});
+// Optional: bind default coordinates + TZ (and NTP) for sunrise/sunset
+static ESPDate solar(ESPDateConfig{47.4979f, 19.0402f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org"});
 
 void setup() {
     Serial.begin(115200);
@@ -229,7 +232,7 @@ DateTime nextBilling = date.addMonths(thisBilling, 1);
 Bind your coordinates and TZ once, then fetch today’s sun cycle (auto-DST):
 
 ```cpp
-ESPDate solar(ESPDateConfig{47.4979f, 19.0402f, "CET-1CEST,M3.5.0/2,M10.5.0/3"});
+ESPDate solar(ESPDateConfig{47.4979f, 19.0402f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org"});
 
 SunCycleResult rise = solar.sunrise();                     // today, using stored config
 SunCycleResult setToday = solar.sunset();                  // today, using stored config
@@ -255,6 +258,9 @@ SunCycleResult nycRiseTz = date.sunrise(40.7128f, -74.0060f, "EST5EDT,M3.2.0/2,M
 bool isNowDay = solar.isDay();                        // uses stored config
 bool isGivenDay = solar.isDay(date.fromUtc(2024, 6, 1));
 bool isWithOffsets = solar.isDay(-900, -1800);        // 15 min before sunrise, 30 min before sunset
+bool dstNow = solar.isDstActive();                    // stored TZ or current system TZ
+bool dstForDate = date.isDstActive(date.fromUtc(2024, 10, 1, 12, 0, 0),
+                                   "EST5EDT,M3.2.0/2,M11.1.0/2");
 
 // Month names (UTC calendar)
 const char* month = date.monthName(date.now());  // e.g., "March"
@@ -287,7 +293,7 @@ DateTime startYear = date.startOfYearLocal(now);
 See `examples/sun_cycle/sun_cycle.ino` for a full sketch. Key bits:
 
 ```cpp
-ESPDate solar(ESPDateConfig{47.4979f, 19.0402f, "CET-1CEST,M3.5.0/2,M10.5.0/3"});
+ESPDate solar(ESPDateConfig{47.4979f, 19.0402f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org"});
 DateTime today = solar.now();
 
 SunCycleResult rise = solar.sunrise(today);
@@ -303,7 +309,7 @@ if (rise.ok && set.ok) {
 ```
 
 ## Gotchas
-- ESPDate never configures SNTP; ensure the device clock is set before calling `now()`. Sunrise/sunset use either the stored TZ string (if provided) or the current process TZ—make sure it matches the coordinates you pass.
+- ESPDate configures SNTP only when you supply both `timeZone` and `ntpServer` in `ESPDateConfig` (it calls `configTzTime`). Otherwise ensure the device clock is set before calling `now()`. Sunrise/sunset use either the stored TZ string (if provided) or the current process TZ—make sure it matches the coordinates you pass.
 - All arithmetic and comparisons are UTC-first. Local helpers rely on the current process TZ (`setenv("TZ", ...)`, `tzset()`); make sure that matches your deployment.
 - Month/year arithmetic clamps to the last valid day of the target month (e.g., Jan 31 + 1 month → Feb 28/29; Feb 29 - 1 year → Feb 28).
 - `differenceInDays` is purely `seconds / 86400` truncated toward zero, not a calendar-boundary delta.

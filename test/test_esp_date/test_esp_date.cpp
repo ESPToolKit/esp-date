@@ -3,6 +3,7 @@
 #include <unity.h>
 #include <time.h>
 #include <cstdlib>
+#include <string>
 
 static ESPDate date;
 static const float kBudapestLat = 47.4979f;
@@ -142,6 +143,43 @@ static void test_is_day_helpers() {
   tzset();
 }
 
+static void test_is_dst_active_with_timezone_string() {
+  DateTime summer = date.fromUtc(2024, 6, 1, 12, 0, 0);
+  DateTime winter = date.fromUtc(2024, 12, 1, 12, 0, 0);
+
+  TEST_ASSERT_TRUE(date.isDstActive(summer, "CET-1CEST,M3.5.0/2,M10.5.0/3"));
+  TEST_ASSERT_FALSE(date.isDstActive(winter, "CET-1CEST,M3.5.0/2,M10.5.0/3"));
+}
+
+static void test_is_dst_active_with_configured_timezone() {
+  ESPDate configured(ESPDateConfig{0.0f, 0.0f, "EST5EDT,M3.2.0/2,M11.1.0/2"});
+  DateTime summer = configured.fromUtc(2024, 7, 1, 15, 0, 0);
+  DateTime winter = configured.fromUtc(2024, 12, 1, 15, 0, 0);
+
+  TEST_ASSERT_TRUE(configured.isDstActive(summer));
+  TEST_ASSERT_FALSE(configured.isDstActive(winter));
+}
+
+static void test_is_dst_active_with_system_timezone() {
+  const char* current = getenv("TZ");
+  std::string previous = current ? current : "";
+  setenv("TZ", "CET-1CEST,M3.5.0/2,M10.5.0/3", 1);
+  tzset();
+
+  DateTime summer = date.fromUtc(2024, 6, 1, 12, 0, 0);
+  DateTime winter = date.fromUtc(2024, 1, 15, 12, 0, 0);
+
+  TEST_ASSERT_TRUE(date.isDstActive(summer));
+  TEST_ASSERT_FALSE(date.isDstActive(winter));
+
+  if (previous.empty()) {
+    unsetenv("TZ");
+  } else {
+    setenv("TZ", previous.c_str(), 1);
+  }
+  tzset();
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -159,6 +197,9 @@ void setup() {
   RUN_TEST(test_next_daily_and_weekday_local);
   RUN_TEST(test_sunrise_config_matches_manual);
   RUN_TEST(test_is_day_helpers);
+  RUN_TEST(test_is_dst_active_with_timezone_string);
+  RUN_TEST(test_is_dst_active_with_configured_timezone);
+  RUN_TEST(test_is_dst_active_with_system_timezone);
   UNITY_END();
 }
 

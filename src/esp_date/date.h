@@ -27,6 +27,7 @@ struct ESPDateConfig {
   float latitude = 0.0f;
   float longitude = 0.0f;
   const char* timeZone = nullptr;  // POSIX TZ string, e.g. "CET-1CEST,M3.5.0/2,M10.5.0/3"
+  const char* ntpServer = nullptr; // optional NTP server; used with timeZone to call configTzTime
 };
 
 struct SunCycleResult {
@@ -166,6 +167,12 @@ class ESPDate {
   bool isDay(const DateTime& day) const;
   bool isDay(int sunRiseOffsetSec, int sunSetOffsetSec) const;
   bool isDay(int sunRiseOffsetSec, int sunSetOffsetSec, const DateTime& day) const;
+
+  // Daylight saving time helpers
+  bool isDstActive() const;
+  bool isDstActive(const DateTime& dt) const;
+  bool isDstActive(const char* timeZone) const;
+  bool isDstActive(const DateTime& dt, const char* timeZone) const;
 
   // Month names
   const char* monthName(int month) const;         // 1..12, returns "January" ..."December" or nullptr on invalid

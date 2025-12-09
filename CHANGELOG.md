@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 The format follows Keep a Changelog and the project adheres to Semantic Versioning.
 
 ## [Unreleased]
+### Added
+- `isDstActive` helper to detect whether daylight saving time is in effect using a provided POSIX TZ string, the stored TZ config, or the current system TZ.
+- `ESPDateConfig` now accepts an `ntpServer`; when provided alongside `timeZone`, the constructor calls `configTzTime` to set the TZ and bootstrap SNTP automatically.
 
 ## [1.0.1] - 2025-02-12
 ### Added
