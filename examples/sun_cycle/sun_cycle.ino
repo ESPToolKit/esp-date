@@ -30,6 +30,11 @@ void setup() {
     Serial.println("No sunrise/sunset for these coordinates today.");
   }
 
+  MoonPhaseResult phase = solar.moonPhase(today);
+  if (phase.ok) {
+    Serial.printf("Moon phase: %d deg, illumination: %.3f\n", phase.angleDegrees, phase.illumination);
+  }
+
   // Use offsets to extend the daylight window (e.g., start 15 min earlier, end 30 min earlier)
   bool isDayWithOffsets = solar.isDay(-900, -1800, today);
   Serial.printf("Is day (with offsets): %s\n", isDayWithOffsets ? "yes" : "no");

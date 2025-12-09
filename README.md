@@ -16,6 +16,7 @@ ESPDate is a tiny C++17 helper for ESP32 projects that makes working with dates 
 - **Formatting / parsing**: ISO-8601 and `YYYY-MM-DD HH:MM:SS` helpers, plus `strftime`-style patterns for UTC or local time.
 - **Sunrise / sunset**: compute daily sun times from lat/lon using numeric offsets or POSIX TZ strings (auto-DST aware).
 - **DST detection**: `isDstActive` reports whether daylight saving time applies using the stored TZ, an explicit POSIX TZ string, or the current system TZ.
+- **Moon phase**: `moonPhase` returns the current lunar phase angle and illumination fraction for any moment.
 - **Optional NTP bootstrap**: when both `timeZone` and `ntpServer` are provided in `ESPDateConfig`, the constructor calls `configTzTime` to set TZ and start SNTP.
 - **Friendly month names**: `monthName(int|DateTime)` returns `"January"` … `"December"` for quick labels.
 - **Class-based API**: everything hangs off a single `ESPDate` instance; no global namespace clutter.
@@ -261,6 +262,12 @@ bool isWithOffsets = solar.isDay(-900, -1800);        // 15 min before sunrise, 
 bool dstNow = solar.isDstActive();                    // stored TZ or current system TZ
 bool dstForDate = date.isDstActive(date.fromUtc(2024, 10, 1, 12, 0, 0),
                                    "EST5EDT,M3.2.0/2,M11.1.0/2");
+
+// Moon phase (angle in degrees, illumination 0..1)
+MoonPhaseResult phase = date.moonPhase();
+if (phase.ok) {
+  Serial.printf("Moon angle: %d deg, illumination: %.3f\n", phase.angleDegrees, phase.illumination);
+}
 
 // Month names (UTC calendar)
 const char* month = date.monthName(date.now());  // e.g., "March"

@@ -152,6 +152,7 @@ bool isDstActiveFor(const DateTime& dt, const char* timeZone) {
   }
   return normalizedTm.tm_isdst > 0;
 }
+
 }  // namespace
 
 int DateTime::yearUtc() const {

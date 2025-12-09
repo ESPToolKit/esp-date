@@ -35,6 +35,12 @@ struct SunCycleResult {
   DateTime value;
 };
 
+struct MoonPhaseResult {
+  bool ok;
+  int angleDegrees;    // 0..360
+  double illumination; // 0.0..1.0
+};
+
 class ESPDate {
  public:
   ESPDate();
@@ -173,6 +179,10 @@ class ESPDate {
   bool isDstActive(const DateTime& dt) const;
   bool isDstActive(const char* timeZone) const;
   bool isDstActive(const DateTime& dt, const char* timeZone) const;
+
+  // Moon phase
+  MoonPhaseResult moonPhase() const;
+  MoonPhaseResult moonPhase(const DateTime& dt) const;
 
   // Month names
   const char* monthName(int month) const;         // 1..12, returns "January" ..."December" or nullptr on invalid

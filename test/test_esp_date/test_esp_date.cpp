@@ -180,6 +180,18 @@ static void test_is_dst_active_with_system_timezone() {
   tzset();
 }
 
+static void test_moon_phase_full_and_new_moon() {
+  MoonPhaseResult full = date.moonPhase(date.fromUtc(2024, 3, 25, 0, 0, 0));  // full moon
+  TEST_ASSERT_TRUE(full.ok);
+  TEST_ASSERT_TRUE(full.illumination > 0.95);
+  TEST_ASSERT_TRUE(full.angleDegrees >= 170 && full.angleDegrees <= 190);
+
+  MoonPhaseResult solarEclipseNew = date.moonPhase(date.fromUtc(2024, 4, 8, 18, 0, 0));  // near new moon
+  TEST_ASSERT_TRUE(solarEclipseNew.ok);
+  TEST_ASSERT_TRUE(solarEclipseNew.illumination < 0.05);
+  TEST_ASSERT_TRUE(solarEclipseNew.angleDegrees < 10 || solarEclipseNew.angleDegrees > 350);
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -200,6 +212,7 @@ void setup() {
   RUN_TEST(test_is_dst_active_with_timezone_string);
   RUN_TEST(test_is_dst_active_with_configured_timezone);
   RUN_TEST(test_is_dst_active_with_system_timezone);
+  RUN_TEST(test_moon_phase_full_and_new_moon);
   UNITY_END();
 }
 

@@ -60,6 +60,11 @@ void setup() {
       Serial.println(buf);
     }
   }
+
+  MoonPhaseResult phase = date.moonPhase();
+  if (phase.ok) {
+    Serial.printf("Moon phase: %d deg, illumination: %.3f\n", phase.angleDegrees, phase.illumination);
+  }
 }
 
 void loop() {
