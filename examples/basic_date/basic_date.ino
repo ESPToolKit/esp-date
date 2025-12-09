@@ -28,6 +28,11 @@ void setup() {
   int64_t deltaDays = date.differenceInDays(tomorrow, now);
   Serial.printf("Days between now and tomorrow: %lld\n", static_cast<long long>(deltaDays));
 
+  bool equalSeconds = date.isEqual(now, tomorrow);
+  bool equalMinutes = date.isEqualMinutes(now, date.addSeconds(now, 30));  // same minute
+  Serial.printf("Equal (seconds precision): %s\n", equalSeconds ? "true" : "false");
+  Serial.printf("Equal (minutes precision): %s\n", equalMinutes ? "true" : "false");
+
   DateTime start = date.startOfDayLocal(now);
   DateTime end = date.endOfDayLocal(now);
 

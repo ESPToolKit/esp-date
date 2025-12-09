@@ -6,7 +6,11 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 
 ## [Unreleased]
 ### Added
-- Unity smoke tests under `test/test_esp_date` to cover arithmetic, formatting, and parsing flows on-device.
+- Sunrise/sunset helpers with optional constructor config (lat/lon/TZ), DST-aware TZ-string support, explicit parameter overloads, and `isDay` convenience checks (with optional offsets).
+- Unity smoke tests under `test/test_esp_date` to cover arithmetic, formatting, parsing, and sun-cycle flows on-device.
+- `monthName(int|DateTime)` helper to return friendly month strings.
+- Sun cycle example sketch under `examples/sun_cycle`.
+- Minute-level equality helpers: `isEqualMinutes` / `isEqualMinutesUtc`.
 - Documented both installation paths (manual zip drop-in and PlatformIO `lib_deps` GitHub URL) in the README Getting Started section.
 - Convenience constructors (`fromUtc`, `fromLocal`), start-of-year helpers, and scheduler-friendly helpers (`nextDailyAtLocal`, `nextWeekdayAtLocal`) to simplify consumer code.
 

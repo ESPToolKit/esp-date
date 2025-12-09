@@ -2,8 +2,11 @@
 #include <ESPDate.h>
 #include <unity.h>
 #include <time.h>
+#include <cstdlib>
 
 static ESPDate date;
+static const float kBudapestLat = 47.4979f;
+static const float kBudapestLon = 19.0402f;
 
 static void test_add_days_and_differences() {
   DateTime base = date.fromUnixSeconds(1704067200);  // 2024-01-01T00:00:00Z
@@ -86,6 +89,59 @@ static void test_next_daily_and_weekday_local() {
   TEST_ASSERT_TRUE(date.isEqual(monday930, date.fromUnixSeconds(1741599000)));  // 2025-03-10T09:30:00Z
 }
 
+static void test_sunrise_config_matches_manual() {
+  ESPDate configured(ESPDateConfig{kBudapestLat, kBudapestLon, "CET-1CEST,M3.5.0/2,M10.5.0/3"});
+  DateTime day = configured.fromUtc(2024, 6, 1);
+
+  SunCycleResult cfgRise = configured.sunrise(day);
+  SunCycleResult cfgSet = configured.sunset(day);
+  SunCycleResult manualRise = date.sunrise(kBudapestLat, kBudapestLon, 1.0f, true, day);   // CEST
+  SunCycleResult manualSet = date.sunset(kBudapestLat, kBudapestLon, 1.0f, true, day);
+
+  TEST_ASSERT_TRUE(cfgRise.ok);
+  TEST_ASSERT_TRUE(cfgSet.ok);
+  TEST_ASSERT_TRUE(manualRise.ok);
+  TEST_ASSERT_TRUE(manualSet.ok);
+
+  int64_t riseDelta = date.differenceInMinutes(cfgRise.value, manualRise.value);
+  int64_t setDelta = date.differenceInMinutes(cfgSet.value, manualSet.value);
+
+  TEST_ASSERT_TRUE(llabs(riseDelta) <= 2);
+  TEST_ASSERT_TRUE(llabs(setDelta) <= 2);
+
+  setenv("TZ", "UTC", 1);
+  tzset();
+}
+
+static void test_is_day_helpers() {
+  ESPDate solar(ESPDateConfig{kBudapestLat, kBudapestLon, "CET-1CEST,M3.5.0/2,M10.5.0/3"});
+  DateTime day = solar.fromUtc(2024, 6, 1);
+  SunCycleResult rise = solar.sunrise(day);
+  SunCycleResult set = solar.sunset(day);
+  TEST_ASSERT_TRUE(rise.ok);
+  TEST_ASSERT_TRUE(set.ok);
+
+  DateTime morning = solar.addMinutes(rise.value, 30);
+  DateTime night = solar.subMinutes(rise.value, 30);
+  TEST_ASSERT_TRUE(solar.isDay(morning));
+  TEST_ASSERT_FALSE(solar.isDay(night));
+
+  int sunriseOffset = -900;  // 15 minutes before sunrise counts as day
+  DateTime preDawn = solar.subMinutes(rise.value, 10);
+  TEST_ASSERT_TRUE(solar.isDay(sunriseOffset, 0, preDawn));
+  TEST_ASSERT_FALSE(solar.isDay(0, 0, preDawn));
+
+  // Large negative sunset offset should end the day earlier
+  int sunsetOffset = -3600;  // end one hour earlier
+  DateTime beforeEarlyEnd = solar.subMinutes(set.value, 30);
+  TEST_ASSERT_TRUE(solar.isDay(0, sunsetOffset, beforeEarlyEnd));
+  DateTime afterEarlyEnd = solar.subMinutes(set.value, -10);
+  TEST_ASSERT_FALSE(solar.isDay(0, sunsetOffset, afterEarlyEnd));
+
+  setenv("TZ", "UTC", 1);
+  tzset();
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -101,6 +157,8 @@ void setup() {
   RUN_TEST(test_from_utc_clamps_day);
   RUN_TEST(test_start_of_year_helpers);
   RUN_TEST(test_next_daily_and_weekday_local);
+  RUN_TEST(test_sunrise_config_matches_manual);
+  RUN_TEST(test_is_day_helpers);
   UNITY_END();
 }
 

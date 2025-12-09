@@ -1,5 +1,6 @@
 #include "date.h"
 
+#include <cstdlib>
 #include <cstring>
 
 #if defined(__SIZEOF_TIME_T__) && __SIZEOF_TIME_T__ < 8
@@ -125,6 +126,17 @@ int DateTime::secondUtc() const {
     return 0;
   }
   return t.tm_sec;
+}
+
+ESPDate::ESPDate() = default;
+
+ESPDate::ESPDate(const ESPDateConfig& config)
+    : latitude_(config.latitude), longitude_(config.longitude), hasLocation_(true) {
+  if (config.timeZone && config.timeZone[0] != '\0') {
+    timeZone_ = config.timeZone;
+    setenv("TZ", timeZone_.c_str(), 1);
+    tzset();
+  }
 }
 
 DateTime ESPDate::now() const {
@@ -316,6 +328,14 @@ bool ESPDate::isAfter(const DateTime& a, const DateTime& b) const {
 
 bool ESPDate::isEqual(const DateTime& a, const DateTime& b) const {
   return a.epochSeconds == b.epochSeconds;
+}
+
+bool ESPDate::isEqualMinutes(const DateTime& a, const DateTime& b) const {
+  return (a.epochSeconds / kSecondsPerMinute) == (b.epochSeconds / kSecondsPerMinute);
+}
+
+bool ESPDate::isEqualMinutesUtc(const DateTime& a, const DateTime& b) const {
+  return isEqualMinutes(a, b);
 }
 
 bool ESPDate::isSameDay(const DateTime& a, const DateTime& b) const {
@@ -685,4 +705,17 @@ ESPDate::ParseResult ESPDate::parseDateTimeLocal(const char* str) const {
   result.ok = true;
   result.value = fromLocalTm(t);
   return result;
+}
+
+const char* ESPDate::monthName(int month) const {
+  static const char* kMonths[12] = {"January",   "February", "March",    "April",   "May",      "June",
+                                    "July",      "August",   "September","October", "November", "December"};
+  if (month < 1 || month > 12) {
+    return nullptr;
+  }
+  return kMonths[month - 1];
+}
+
+const char* ESPDate::monthName(const DateTime& dt) const {
+  return monthName(dt.monthUtc());
 }

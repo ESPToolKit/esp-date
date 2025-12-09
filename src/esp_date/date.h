@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <stdint.h>
 #include <time.h>
+#include <string>
 
 struct DateTime {
   int64_t epochSeconds = 0;  // seconds since 1970-01-01T00:00:00Z
@@ -22,8 +23,22 @@ enum class ESPDateFormat {
   Time
 };
 
+struct ESPDateConfig {
+  float latitude = 0.0f;
+  float longitude = 0.0f;
+  const char* timeZone = nullptr;  // POSIX TZ string, e.g. "CET-1CEST,M3.5.0/2,M10.5.0/3"
+};
+
+struct SunCycleResult {
+  bool ok;
+  DateTime value;
+};
+
 class ESPDate {
  public:
+  ESPDate();
+  explicit ESPDate(const ESPDateConfig& config);
+
   DateTime now() const;
   DateTime fromUnixSeconds(int64_t seconds) const;
   DateTime fromUtc(int year, int month, int day, int hour = 0, int minute = 0, int second = 0) const;
@@ -69,7 +84,9 @@ class ESPDate {
   // Comparisons
   bool isBefore(const DateTime& a, const DateTime& b) const;
   bool isAfter(const DateTime& a, const DateTime& b) const;
-  bool isEqual(const DateTime& a, const DateTime& b) const;
+  bool isEqual(const DateTime& a, const DateTime& b) const;           // seconds precision
+  bool isEqualMinutes(const DateTime& a, const DateTime& b) const;    // minutes precision (UTC epoch / 60)
+  bool isEqualMinutesUtc(const DateTime& a, const DateTime& b) const; // alias for minute-level UTC compare
   bool isSameDay(const DateTime& a, const DateTime& b) const;
 
   // Calendar helpers (UTC)
@@ -117,4 +134,50 @@ class ESPDate {
 
   ParseResult parseIso8601Utc(const char* str) const;
   ParseResult parseDateTimeLocal(const char* str) const;
+
+  // Sun cycle using stored configuration (lat/lon/timezone)
+  SunCycleResult sunrise() const;
+  SunCycleResult sunset() const;
+  SunCycleResult sunrise(const DateTime& day) const;
+  SunCycleResult sunset(const DateTime& day) const;
+
+  // Sun cycle with explicit parameters (timezone in hours, DST flag)
+  SunCycleResult sunrise(float latitude, float longitude, float timezoneHours, bool isDst) const;
+  SunCycleResult sunset(float latitude, float longitude, float timezoneHours, bool isDst) const;
+  SunCycleResult sunrise(float latitude,
+                         float longitude,
+                         float timezoneHours,
+                         bool isDst,
+                         const DateTime& day) const;
+  SunCycleResult sunset(float latitude,
+                        float longitude,
+                        float timezoneHours,
+                        bool isDst,
+                        const DateTime& day) const;
+
+  // Sun cycle using a POSIX TZ string (auto-DST) instead of numeric offset
+  SunCycleResult sunrise(float latitude, float longitude, const char* timeZone) const;
+  SunCycleResult sunset(float latitude, float longitude, const char* timeZone) const;
+  SunCycleResult sunrise(float latitude, float longitude, const char* timeZone, const DateTime& day) const;
+  SunCycleResult sunset(float latitude, float longitude, const char* timeZone, const DateTime& day) const;
+
+  // Daylight checks using stored configuration
+  bool isDay() const;
+  bool isDay(const DateTime& day) const;
+  bool isDay(int sunRiseOffsetSec, int sunSetOffsetSec) const;
+  bool isDay(int sunRiseOffsetSec, int sunSetOffsetSec, const DateTime& day) const;
+
+  // Month names
+  const char* monthName(int month) const;         // 1..12, returns "January" ..."December" or nullptr on invalid
+  const char* monthName(const DateTime& dt) const;
+
+ private:
+  SunCycleResult sunriseFromConfig(const DateTime& day) const;
+  SunCycleResult sunsetFromConfig(const DateTime& day) const;
+  bool isDayWithOffsets(const DateTime& day, int sunRiseOffsetSec, int sunSetOffsetSec) const;
+
+  float latitude_ = 0.0f;
+  float longitude_ = 0.0f;
+  std::string timeZone_;
+  bool hasLocation_ = false;
 };
