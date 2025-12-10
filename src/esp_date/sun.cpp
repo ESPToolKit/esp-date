@@ -1,68 +1,16 @@
 #include "date.h"
+#include "utils.h"
 
 #include <cmath>
-#include <cstdlib>
-#include <cstring>
-#include <string>
+
+using Utils = ESPDateUtils;
 
 namespace {
-constexpr int64_t kSecondsPerMinute = 60;
-constexpr int64_t kSecondsPerHour = 60 * kSecondsPerMinute;
-constexpr int64_t kSecondsPerDay = 24 * kSecondsPerHour;
-
-int64_t daysFromCivil(int year, unsigned month, unsigned day) {
-  year -= month <= 2;
-  const int era = (year >= 0 ? year : year - 399) / 400;
-  const unsigned yoe = static_cast<unsigned>(year - era * 400);
-  const unsigned doy = (153 * (month + (month > 2 ? -3 : 9)) + 2) / 5 + day - 1;
-  const unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-  return era * 146097 + static_cast<int>(doe) - 719468;
-}
-
-int64_t timegm64(const tm& t) {
-  const int year = t.tm_year + 1900;
-  const unsigned month = static_cast<unsigned>(t.tm_mon + 1);
-  const unsigned day = static_cast<unsigned>(t.tm_mday);
-  const int64_t days = daysFromCivil(year, month, day);
-  return days * kSecondsPerDay + static_cast<int64_t>(t.tm_hour) * kSecondsPerHour +
-         static_cast<int64_t>(t.tm_min) * kSecondsPerMinute + static_cast<int64_t>(t.tm_sec);
-}
 
 bool validCoordinates(float latitude, float longitude) {
   return std::isfinite(latitude) && std::isfinite(longitude) && latitude >= -90.0f && latitude <= 90.0f &&
          longitude >= -180.0f && longitude <= 180.0f;
 }
-
-struct ScopedTz {
-  explicit ScopedTz(const char* tz) : changed(false) {
-    if (tz && tz[0] != '\0') {
-      const char* current = getenv("TZ");
-      if (!current || std::strcmp(current, tz) != 0) {
-        if (current) {
-          previous.assign(current);
-        }
-        setenv("TZ", tz, 1);
-        tzset();
-        changed = true;
-      }
-    }
-  }
-
-  ~ScopedTz() {
-    if (!changed) {
-      return;
-    }
-    if (previous.empty()) {
-      unsetenv("TZ");
-    } else {
-      setenv("TZ", previous.c_str(), 1);
-    }
-    tzset();
-  }
-
-  std::string previous;
-  bool changed;
-};
 
 struct LocalDateResult {
   int year = 0;
@@ -87,14 +35,14 @@ LocalDateResult deriveLocalDateWithOffset(const DateTime& dt, int offsetSeconds)
 }
 
 OffsetDateResult computeOffsetAndDate(const DateTime& dt, const char* timeZone) {
-  ScopedTz scoped(timeZone);
+  Utils::ScopedTz scoped(timeZone);
   time_t raw = static_cast<time_t>(dt.epochSeconds);
   tm local{};
   if (localtime_r(&raw, &local) == nullptr) {
     return {};
   }
 
-  const int64_t offsetSeconds = timegm64(local) - static_cast<int64_t>(raw);
+  const int64_t offsetSeconds = Utils::timegm64(local) - static_cast<int64_t>(raw);
   OffsetDateResult result;
   result.offsetMinutes = static_cast<double>(offsetSeconds) / 60.0;
   result.date = LocalDateResult{local.tm_year + 1900, local.tm_mon + 1, local.tm_mday, true};
@@ -250,7 +198,7 @@ SunCycleResult buildSunCycleResult(int minutes,
   DateTime localMidnightUtc = dateHelper.subSeconds(midnightUtc, offsetSeconds);
 
   result.ok = true;
-  result.value = dateHelper.addSeconds(localMidnightUtc, static_cast<int64_t>(minutes) * kSecondsPerMinute);
+  result.value = dateHelper.addSeconds(localMidnightUtc, static_cast<int64_t>(minutes) * Utils::kSecondsPerMinute);
   return result;
 }
 }  // namespace
@@ -288,7 +236,7 @@ SunCycleResult ESPDate::sunrise(float latitude,
     return SunCycleResult{false, DateTime{}};
   }
   const double offsetMinutes = static_cast<double>(timezoneHours) * 60.0 + (isDst ? 60.0 : 0.0);
-  const int offsetSeconds = static_cast<int>(std::llround(offsetMinutes * kSecondsPerMinute));
+  const int offsetSeconds = static_cast<int>(std::llround(offsetMinutes * Utils::kSecondsPerMinute));
   LocalDateResult localDate = deriveLocalDateWithOffset(day, offsetSeconds);
   if (!localDate.ok) {
     return SunCycleResult{false, DateTime{}};
@@ -306,7 +254,7 @@ SunCycleResult ESPDate::sunset(float latitude,
     return SunCycleResult{false, DateTime{}};
   }
   const double offsetMinutes = static_cast<double>(timezoneHours) * 60.0 + (isDst ? 60.0 : 0.0);
-  const int offsetSeconds = static_cast<int>(std::llround(offsetMinutes * kSecondsPerMinute));
+  const int offsetSeconds = static_cast<int>(std::llround(offsetMinutes * Utils::kSecondsPerMinute));
   LocalDateResult localDate = deriveLocalDateWithOffset(day, offsetSeconds);
   if (!localDate.ok) {
     return SunCycleResult{false, DateTime{}};
