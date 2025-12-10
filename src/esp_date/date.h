@@ -16,6 +16,18 @@ struct DateTime {
   int secondUtc() const;  // 0..59
 };
 
+struct LocalDateTime {
+  bool ok = false;
+  int year = 0;
+  int month = 0;
+  int day = 0;
+  int hour = 0;
+  int minute = 0;
+  int second = 0;
+  int offsetMinutes = 0;  // local - UTC
+  DateTime utc{};
+};
+
 enum class ESPDateFormat {
   Iso8601,
   DateTime,
@@ -47,6 +59,10 @@ class ESPDate {
   void init(const ESPDateConfig& config);
 
   DateTime now() const;
+  DateTime nowUtc() const;   // alias of now(), returns the raw system clock (UTC)
+  LocalDateTime nowLocal() const;
+  LocalDateTime toLocal(const DateTime& dt) const;
+  LocalDateTime toLocal(const DateTime& dt, const char* timeZone) const;
   DateTime fromUnixSeconds(int64_t seconds) const;
   DateTime fromUtc(int year, int month, int day, int hour = 0, int minute = 0, int second = 0) const;
   DateTime fromLocal(int year, int month, int day, int hour = 0, int minute = 0, int second = 0) const;

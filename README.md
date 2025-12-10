@@ -18,6 +18,7 @@ ESPDate is a tiny C++17 helper for ESP32 projects that makes working with dates 
 - **DST detection**: `isDstActive` reports whether daylight saving time applies using the stored TZ, an explicit POSIX TZ string, or the current system TZ.
 - **Moon phase**: `moonPhase` returns the current lunar phase angle and illumination fraction for any moment.
 - **Optional NTP bootstrap**: call `init` with `ESPDateConfig` containing both `timeZone` and `ntpServer` to set TZ and start SNTP after Arduino/WiFi is ready.
+- **Local breakdown helpers**: `nowLocal()` / `toLocal()` surface the broken-out local time (with UTC offset) for quick DST/debug checks; feed sunrise/sunset results into `toLocal` to read them in local time.
 - **Friendly month names**: `monthName(int|DateTime)` returns `"January"` … `"December"` for quick labels.
 - **Class-based API**: everything hangs off a single `ESPDate` instance; no global namespace clutter.
 - **Lightweight & portable**: C++17, header-first public API; relies only on standard C time functions and the system clock (`time()`).
@@ -69,7 +70,38 @@ void setup() {
     Serial.println(diffSeconds);
     Serial.print("Days between now and last year: ");
     Serial.println(diffDays);
+
+    LocalDateTime local = date.nowLocal();  // quick DST/local sanity check
+    if (local.ok) {
+        Serial.printf("Local now: %04d-%02d-%02d %02d:%02d:%02d (UTC offset %+d min)\n",
+                      local.year, local.month, local.day,
+                      local.hour, local.minute, local.second,
+                      local.offsetMinutes);
+    }
 }
+
+### Working With Local Time (UI) vs UTC (storage/logic)
+- Show users **local** values: format with `formatLocal` or break down with `toLocal/nowLocal`.
+- Store and compare **UTC**: keep `DateTime` as UTC epoch seconds so comparisons are consistent.
+- Converting user choices back to UTC:
+
+```cpp
+// User picked "2025-03-05 21:30" in local time (UI)
+DateTime when = date.fromLocal(2025, 3, 5, 21, 30, 0);
+// or parse: date.parseDateTimeLocal("2025-03-05 21:30:00").value;
+
+// Store `when` (UTC) and compare to date.now()/sunset() etc.
+if (date.isAfter(date.now(), when)) {
+    Serial.println("Already passed");
+}
+
+// When showing it again, render local:
+char buf[32];
+date.formatLocal(when, ESPDateFormat::DateTime, buf, sizeof(buf));
+Serial.printf("Scheduled for local time: %s\n", buf);
+```
+
+Sunrise/sunset use your configured TZ (or system TZ) to compute the correct local event, but they return a UTC-backed `DateTime`. Use `formatLocal`/`toLocal` to display those events in local time.
 
 void loop() {
     // ...

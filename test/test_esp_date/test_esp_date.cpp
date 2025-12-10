@@ -183,6 +183,31 @@ static void test_is_dst_active_with_system_timezone() {
   tzset();
 }
 
+static void test_to_local_breakdown() {
+  setenv("TZ", "CET-1CEST,M3.5.0/2,M10.5.0/3", 1);
+  tzset();
+
+  DateTime winter = date.fromUtc(2024, 12, 1, 20, 45, 0);  // 21:45 CET
+  LocalDateTime winterLocal = date.toLocal(winter);
+  TEST_ASSERT_TRUE(winterLocal.ok);
+  TEST_ASSERT_EQUAL(2024, winterLocal.year);
+  TEST_ASSERT_EQUAL(12, winterLocal.month);
+  TEST_ASSERT_EQUAL(1, winterLocal.day);
+  TEST_ASSERT_EQUAL(21, winterLocal.hour);
+  TEST_ASSERT_EQUAL(45, winterLocal.minute);
+  TEST_ASSERT_EQUAL(60, winterLocal.offsetMinutes);  // CET = UTC+1
+
+  DateTime summer = date.fromUtc(2024, 6, 1, 19, 30, 0);  // 21:30 CEST
+  LocalDateTime summerLocal = date.toLocal(summer);
+  TEST_ASSERT_TRUE(summerLocal.ok);
+  TEST_ASSERT_EQUAL(2024, summerLocal.year);
+  TEST_ASSERT_EQUAL(6, summerLocal.month);
+  TEST_ASSERT_EQUAL(1, summerLocal.day);
+  TEST_ASSERT_EQUAL(21, summerLocal.hour);
+  TEST_ASSERT_EQUAL(30, summerLocal.minute);
+  TEST_ASSERT_EQUAL(120, summerLocal.offsetMinutes);  // CEST = UTC+2
+}
+
 static void test_moon_phase_full_and_new_moon() {
   MoonPhaseResult full = date.moonPhase(date.fromUtc(2024, 3, 25, 0, 0, 0));  // full moon
   TEST_ASSERT_TRUE(full.ok);
@@ -215,6 +240,7 @@ void setup() {
   RUN_TEST(test_is_dst_active_with_timezone_string);
   RUN_TEST(test_is_dst_active_with_configured_timezone);
   RUN_TEST(test_is_dst_active_with_system_timezone);
+  RUN_TEST(test_to_local_breakdown);
   RUN_TEST(test_moon_phase_full_and_new_moon);
   UNITY_END();
 }

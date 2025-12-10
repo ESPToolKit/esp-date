@@ -231,6 +231,45 @@ DateTime ESPDate::now() const {
   return DateTime{static_cast<int64_t>(time(nullptr))};
 }
 
+DateTime ESPDate::nowUtc() const {
+  return now();
+}
+
+LocalDateTime ESPDate::nowLocal() const {
+  return toLocal(now(), nullptr);
+}
+
+LocalDateTime ESPDate::toLocal(const DateTime& dt) const {
+  return toLocal(dt, nullptr);
+}
+
+LocalDateTime ESPDate::toLocal(const DateTime& dt, const char* timeZone) const {
+  LocalDateTime result{};
+  const char* tz = timeZone;
+  if (!tz || tz[0] == '\0') {
+    tz = timeZone_.empty() ? nullptr : timeZone_.c_str();
+  }
+
+  ScopedTz scoped(tz);
+  time_t raw = static_cast<time_t>(dt.epochSeconds);
+  tm local{};
+  if (localtime_r(&raw, &local) == nullptr) {
+    return result;
+  }
+
+  const int offsetSeconds = static_cast<int>(timegm64(local) - static_cast<int64_t>(raw));
+  result.ok = true;
+  result.year = local.tm_year + 1900;
+  result.month = local.tm_mon + 1;
+  result.day = local.tm_mday;
+  result.hour = local.tm_hour;
+  result.minute = local.tm_min;
+  result.second = local.tm_sec;
+  result.offsetMinutes = offsetSeconds / 60;
+  result.utc = dt;
+  return result;
+}
+
 DateTime ESPDate::fromUnixSeconds(int64_t seconds) const {
   return DateTime{seconds};
 }

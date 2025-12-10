@@ -8,6 +8,8 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 ### Added
 - `isDstActive` helper to detect whether daylight saving time is in effect using a provided POSIX TZ string, the stored TZ config, or the current system TZ.
 - Moon phase calculation helpers returning phase angle and illumination for any `DateTime` (or `now()`).
+- Local time helpers: `nowLocal()` plus `toLocal(DateTime[, tz])` expose broken-out local components and UTC offset for debugging sunrise/sunset and DST handling.
+- Documented the recommended UTC storage + local UI workflow (convert user-picked local times back to UTC with `fromLocal`/`parseDateTimeLocal`).
 
 ### Changed
 - Replaced the `ESPDateConfig` constructor with an explicit `init(const ESPDateConfig&)` so configuration happens after the Arduino runtime is alive, avoiding early SNTP watchdog resets on some boards.
