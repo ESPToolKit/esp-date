@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include <ESPDate.h>
 
-// Configure coordinates and TZ once for repeated use (with NTP sync via configTzTime)
-static ESPDate solar(ESPDateConfig{47.4979f, 19.0402f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org"});
+// Configure coordinates and TZ once in setup for repeated use (with NTP sync via configTzTime)
+static ESPDate solar;
 
 static void printLocal(const char* label, const DateTime& dt) {
   char buf[32];
@@ -17,6 +17,7 @@ void setup() {
   delay(250);
   Serial.println("ESPDate sun cycle example");
   Serial.println("Connect WiFi so configTzTime can sync time, or set system clock/TZ manually before running.");
+  solar.init(ESPDateConfig{47.4979f, 19.0402f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org"});
 
   DateTime today = solar.now();
 

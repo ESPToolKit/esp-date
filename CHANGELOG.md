@@ -7,8 +7,11 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 ## [Unreleased]
 ### Added
 - `isDstActive` helper to detect whether daylight saving time is in effect using a provided POSIX TZ string, the stored TZ config, or the current system TZ.
-- `ESPDateConfig` now accepts an `ntpServer`; when provided alongside `timeZone`, the constructor calls `configTzTime` to set the TZ and bootstrap SNTP automatically.
 - Moon phase calculation helpers returning phase angle and illumination for any `DateTime` (or `now()`).
+
+### Changed
+- Replaced the `ESPDateConfig` constructor with an explicit `init(const ESPDateConfig&)` so configuration happens after the Arduino runtime is alive, avoiding early SNTP watchdog resets on some boards.
+- `ESPDateConfig` now accepts an `ntpServer`; when provided alongside `timeZone`, `init` calls `configTzTime` to set the TZ and bootstrap SNTP automatically.
 
 ## [1.0.1] - 2025-02-12
 ### Added

@@ -44,7 +44,7 @@ struct MoonPhaseResult {
 class ESPDate {
  public:
   ESPDate();
-  explicit ESPDate(const ESPDateConfig& config);
+  void init(const ESPDateConfig& config);
 
   DateTime now() const;
   DateTime fromUnixSeconds(int64_t seconds) const;

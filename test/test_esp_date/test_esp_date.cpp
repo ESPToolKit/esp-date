@@ -91,7 +91,8 @@ static void test_next_daily_and_weekday_local() {
 }
 
 static void test_sunrise_config_matches_manual() {
-  ESPDate configured(ESPDateConfig{kBudapestLat, kBudapestLon, "CET-1CEST,M3.5.0/2,M10.5.0/3"});
+  ESPDate configured;
+  configured.init(ESPDateConfig{kBudapestLat, kBudapestLon, "CET-1CEST,M3.5.0/2,M10.5.0/3"});
   DateTime day = configured.fromUtc(2024, 6, 1);
 
   SunCycleResult cfgRise = configured.sunrise(day);
@@ -115,7 +116,8 @@ static void test_sunrise_config_matches_manual() {
 }
 
 static void test_is_day_helpers() {
-  ESPDate solar(ESPDateConfig{kBudapestLat, kBudapestLon, "CET-1CEST,M3.5.0/2,M10.5.0/3"});
+  ESPDate solar;
+  solar.init(ESPDateConfig{kBudapestLat, kBudapestLon, "CET-1CEST,M3.5.0/2,M10.5.0/3"});
   DateTime day = solar.fromUtc(2024, 6, 1);
   SunCycleResult rise = solar.sunrise(day);
   SunCycleResult set = solar.sunset(day);
@@ -152,7 +154,8 @@ static void test_is_dst_active_with_timezone_string() {
 }
 
 static void test_is_dst_active_with_configured_timezone() {
-  ESPDate configured(ESPDateConfig{0.0f, 0.0f, "EST5EDT,M3.2.0/2,M11.1.0/2"});
+  ESPDate configured;
+  configured.init(ESPDateConfig{0.0f, 0.0f, "EST5EDT,M3.2.0/2,M11.1.0/2"});
   DateTime summer = configured.fromUtc(2024, 7, 1, 15, 0, 0);
   DateTime winter = configured.fromUtc(2024, 12, 1, 15, 0, 0);
 

@@ -205,8 +205,12 @@ int DateTime::secondUtc() const {
 
 ESPDate::ESPDate() = default;
 
-ESPDate::ESPDate(const ESPDateConfig& config)
-    : latitude_(config.latitude), longitude_(config.longitude), hasLocation_(true) {
+void ESPDate::init(const ESPDateConfig& config) {
+  latitude_ = config.latitude;
+  longitude_ = config.longitude;
+  hasLocation_ = true;
+  timeZone_.clear();
+
   const bool hasTz = config.timeZone && config.timeZone[0] != '\0';
   const bool hasNtp = config.ntpServer && config.ntpServer[0] != '\0';
   if (hasTz) {
