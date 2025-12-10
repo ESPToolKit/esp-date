@@ -79,6 +79,7 @@ void setup() {
                       local.offsetMinutes);
     }
 }
+```
 
 ### Working With Local Time (UI) vs UTC (storage/logic)
 - Show users **local** values: format with `formatLocal` or break down with `toLocal/nowLocal`.
@@ -102,11 +103,6 @@ Serial.printf("Scheduled for local time: %s\n", buf);
 ```
 
 Sunrise/sunset use your configured TZ (or system TZ) to compute the correct local event, but they return a UTC-backed `DateTime`. Use `formatLocal`/`toLocal` to display those events in local time.
-
-void loop() {
-    // ...
-}
-```
 
 ## Date & Time Model
 `DateTime` is a small value type representing a moment in time, backed by seconds since the Unix epoch:
