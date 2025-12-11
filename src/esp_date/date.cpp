@@ -120,14 +120,14 @@ LocalDateTime ESPDate::toLocal(const DateTime& dt, const char* timeZone) const {
     tz = timeZone_.empty() ? nullptr : timeZone_.c_str();
   }
 
-  ScopedTz scoped(tz);
+  Utils::ScopedTz scoped(tz);
   time_t raw = static_cast<time_t>(dt.epochSeconds);
   tm local{};
   if (localtime_r(&raw, &local) == nullptr) {
     return result;
   }
 
-  const int offsetSeconds = static_cast<int>(timegm64(local) - static_cast<int64_t>(raw));
+  const int offsetSeconds = static_cast<int>(Utils::timegm64(local) - static_cast<int64_t>(raw));
   result.ok = true;
   result.year = local.tm_year + 1900;
   result.month = local.tm_mon + 1;
