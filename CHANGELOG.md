@@ -15,6 +15,9 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 - Replaced the `ESPDateConfig` constructor with an explicit `init(const ESPDateConfig&)` so configuration happens after the Arduino runtime is alive, avoiding early SNTP watchdog resets on some boards.
 - `ESPDateConfig` now accepts an `ntpServer`; when provided alongside `timeZone`, `init` calls `configTzTime` to set the TZ and bootstrap SNTP automatically.
 
+### Fixed
+- Restored builds by adding the missing internal `utils.h` helpers referenced by the sun/scheduler code paths.
+
 ## [1.0.1] - 2025-02-12
 ### Added
 - Sunrise/sunset helpers with optional constructor config (lat/lon/TZ), DST-aware TZ-string support, explicit parameter overloads, and `isDay` convenience checks (with optional offsets).
