@@ -18,7 +18,7 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 ### Fixed
 - Restored builds by adding the missing internal `utils.h` helpers referenced by the sun/scheduler code paths.
 
-## [1.0.1] - 2025-02-12
+## [1.0.1] - 2025-12-09
 ### Added
 - Sunrise/sunset helpers with optional constructor config (lat/lon/TZ), DST-aware TZ-string support, explicit parameter overloads, and `isDay` convenience checks (with optional offsets).
 - Unity smoke tests under `test/test_esp_date` to cover arithmetic, formatting, parsing, and sun-cycle flows on-device.
@@ -32,7 +32,7 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 - Seeded the CI Arduino CLI setup with the ESP32 board manager URL so core installs succeed on clean runners.
 - Clarified date arithmetic/difference semantics in README and downgraded the `time_t` width check to a warning for 32-bit toolchains.
 
-## [0.1.0] - 2025-12-07
+## [1.0.0] - 2025-12-07
 ### Added
 - Introduced the `DateTime` value type backed by epoch seconds with UTC calendar accessors.
 - Added arithmetic helpers for seconds, minutes, hours, days, months, and years, plus calendar boundaries (`startOfDay*`, `endOfMonth*`) in UTC and local time.
@@ -47,5 +47,5 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 - Authored the README describing goals, feature overview, examples, gotchas, and ESPToolKit links.
 
 [Unreleased]: https://github.com/ESPToolKit/esp-date/compare/v1.0.1...HEAD
-[1.0.1]: https://github.com/ESPToolKit/esp-date/compare/v0.1.0...v1.0.1
-[0.1.0]: https://github.com/ESPToolKit/esp-date/releases/tag/v0.1.0
+[1.0.1]: https://github.com/ESPToolKit/esp-date/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/ESPToolKit/esp-date/releases/tag/v1.0.0
