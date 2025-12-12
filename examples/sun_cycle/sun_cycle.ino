@@ -2,9 +2,9 @@
 #include <ESPDate.h>
 
 // Configure coordinates and TZ once in setup for repeated use (with NTP sync via configTzTime)
-static ESPDate solar;
+ESPDate solar;
 
-static void printLocal(const char* label, const DateTime& dt) {
+void printLocal(const char* label, const DateTime& dt) {
   char buf[32];
   if (solar.formatLocal(dt, ESPDateFormat::DateTime, buf, sizeof(buf))) {
     Serial.print(label);

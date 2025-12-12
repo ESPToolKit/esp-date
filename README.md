@@ -40,8 +40,8 @@ Then include the umbrella header:
 #include <ESPDate.h>
 
 // Create instances globally; configure them in setup once Arduino/WiFi are ready
-static ESPDate date;
-static ESPDate solar;
+ESPDate date;
+ESPDate solar;
 
 void setup() {
     Serial.begin(115200);
