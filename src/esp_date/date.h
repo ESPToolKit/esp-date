@@ -5,6 +5,8 @@
 #include <time.h>
 #include <string>
 
+struct timeval;
+
 struct DateTime {
   int64_t epochSeconds = 0;  // seconds since 1970-01-01T00:00:00Z
 
@@ -55,8 +57,15 @@ struct MoonPhaseResult {
 
 class ESPDate {
  public:
+  using NtpSyncCallback = void (*)(const DateTime& syncedAtUtc);
+
   ESPDate();
   void init(const ESPDateConfig& config);
+  // Optional SNTP sync notification. Pass nullptr to clear.
+  void setNtpSyncCallback(NtpSyncCallback callback);
+  // Triggers an immediate NTP sync with the configured server.
+  // Returns false when no NTP server is configured or SNTP runtime support is unavailable.
+  bool syncNTP();
 
   DateTime now() const;
   DateTime nowUtc() const;   // alias of now(), returns the raw system clock (UTC)
@@ -205,6 +214,13 @@ class ESPDate {
   const char* monthName(const DateTime& dt) const;
 
  private:
+#if defined(__has_include)
+#  if __has_include(<esp_sntp.h>)
+  static void handleSntpSync(struct timeval* tv);
+#  endif
+#endif
+  bool applyNtpConfig() const;
+
   SunCycleResult sunriseFromConfig(const DateTime& day) const;
   SunCycleResult sunsetFromConfig(const DateTime& day) const;
   bool isDayWithOffsets(const DateTime& day, int sunRiseOffsetSec, int sunSetOffsetSec) const;
@@ -212,5 +228,8 @@ class ESPDate {
   float latitude_ = 0.0f;
   float longitude_ = 0.0f;
   std::string timeZone_;
+  std::string ntpServer_;
+  NtpSyncCallback ntpSyncCallback_ = nullptr;
+  static NtpSyncCallback activeNtpSyncCallback_;
   bool hasLocation_ = false;
 };

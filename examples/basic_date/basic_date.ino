@@ -17,6 +17,10 @@ void setup() {
   Serial.println("ESPDate basic example");
   Serial.println("Connect WiFi so configTzTime can sync time, or set the system clock manually before using date.now().");
   date.init(ESPDateConfig{0.0f, 0.0f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org"});
+  date.setNtpSyncCallback([](const DateTime &syncedAtUtc) {
+    Serial.printf("NTP synced, epoch: %lld\n", static_cast<long long>(syncedAtUtc.epochSeconds));
+  });
+  date.syncNTP();  // force an immediate refresh using configured NTP
 
   DateTime now = date.now();
   DateTime tomorrow = date.addDays(now, 1);

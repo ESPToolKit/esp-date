@@ -221,6 +221,15 @@ static void test_moon_phase_full_and_new_moon() {
     TEST_ASSERT_TRUE(solarEclipseNew.angleDegrees < 10 || solarEclipseNew.angleDegrees > 350);
 }
 
+static void test_sync_ntp_requires_server_config() {
+    ESPDate unconfigured;
+    TEST_ASSERT_FALSE(unconfigured.syncNTP());
+
+    ESPDate onlyTimezone;
+    onlyTimezone.init(ESPDateConfig{0.0f, 0.0f, "UTC0", nullptr});
+    TEST_ASSERT_FALSE(onlyTimezone.syncNTP());
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -243,6 +252,7 @@ void setup() {
     RUN_TEST(test_is_dst_active_with_system_timezone);
     RUN_TEST(test_to_local_breakdown);
     RUN_TEST(test_moon_phase_full_and_new_moon);
+    RUN_TEST(test_sync_ntp_requires_server_config);
     UNITY_END();
 }
 

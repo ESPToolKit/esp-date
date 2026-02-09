@@ -9,14 +9,18 @@
 #  if __has_include(<esp_sntp.h>)
 #    include <esp_sntp.h>
 #    define ESPDATE_HAS_CONFIG_TZ_TIME 1
+#    define ESPDATE_HAS_SNTP_NOTIFICATION_CB 1
 #  elif __has_include(<esp_netif_sntp.h>)
 #    include <esp_netif_sntp.h>
 #    define ESPDATE_HAS_CONFIG_TZ_TIME 1
+#    define ESPDATE_HAS_SNTP_NOTIFICATION_CB 0
 #  else
 #    define ESPDATE_HAS_CONFIG_TZ_TIME 0
+#    define ESPDATE_HAS_SNTP_NOTIFICATION_CB 0
 #  endif
 #else
 #  define ESPDATE_HAS_CONFIG_TZ_TIME 0
+#  define ESPDATE_HAS_SNTP_NOTIFICATION_CB 0
 #endif
 
 #if defined(__SIZEOF_TIME_T__) && __SIZEOF_TIME_T__ < 8
@@ -24,6 +28,22 @@
 #endif
 
 using Utils = ESPDateUtils;
+
+ESPDate::NtpSyncCallback ESPDate::activeNtpSyncCallback_ = nullptr;
+
+#if ESPDATE_HAS_SNTP_NOTIFICATION_CB
+void ESPDate::handleSntpSync(struct timeval* tv) {
+  if (!activeNtpSyncCallback_) {
+    return;
+  }
+
+  int64_t syncedEpoch = static_cast<int64_t>(time(nullptr));
+  if (tv) {
+    syncedEpoch = static_cast<int64_t>(tv->tv_sec);
+  }
+  activeNtpSyncCallback_(DateTime{syncedEpoch});
+}
+#endif
 
 int DateTime::yearUtc() const {
   tm t{};
@@ -80,21 +100,52 @@ void ESPDate::init(const ESPDateConfig& config) {
   longitude_ = config.longitude;
   hasLocation_ = true;
   timeZone_.clear();
+  ntpServer_.clear();
 
   const bool hasTz = config.timeZone && config.timeZone[0] != '\0';
   const bool hasNtp = config.ntpServer && config.ntpServer[0] != '\0';
   if (hasTz) {
     timeZone_ = config.timeZone;
-#if ESPDATE_HAS_CONFIG_TZ_TIME
-    if (hasNtp) {
-      configTzTime(timeZone_.c_str(), config.ntpServer, nullptr, nullptr);
-    } else
-#endif
-    {
-      setenv("TZ", timeZone_.c_str(), 1);
-      tzset();
-    }
   }
+  if (hasNtp) {
+    ntpServer_ = config.ntpServer;
+  }
+
+  if (!applyNtpConfig() && hasTz) {
+    setenv("TZ", timeZone_.c_str(), 1);
+    tzset();
+  }
+}
+
+void ESPDate::setNtpSyncCallback(NtpSyncCallback callback) {
+  ntpSyncCallback_ = callback;
+  activeNtpSyncCallback_ = callback;
+#if ESPDATE_HAS_SNTP_NOTIFICATION_CB
+  sntp_set_time_sync_notification_cb(callback ? &ESPDate::handleSntpSync : nullptr);
+#endif
+}
+
+bool ESPDate::syncNTP() {
+  return applyNtpConfig();
+}
+
+bool ESPDate::applyNtpConfig() const {
+#if ESPDATE_HAS_CONFIG_TZ_TIME
+  if (ntpServer_.empty()) {
+    return false;
+  }
+
+#if ESPDATE_HAS_SNTP_NOTIFICATION_CB
+  activeNtpSyncCallback_ = ntpSyncCallback_;
+  sntp_set_time_sync_notification_cb(ntpSyncCallback_ ? &ESPDate::handleSntpSync : nullptr);
+#endif
+
+  const char* tz = timeZone_.empty() ? "UTC0" : timeZone_.c_str();
+  configTzTime(tz, ntpServer_.c_str(), nullptr, nullptr);
+  return true;
+#else
+  return false;
+#endif
 }
 
 DateTime ESPDate::now() const {

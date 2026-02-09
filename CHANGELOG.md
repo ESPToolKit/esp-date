@@ -10,6 +10,8 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 - Moon phase calculation helpers returning phase angle and illumination for any `DateTime` (or `now()`).
 - Local time helpers: `nowLocal()` plus `toLocal(DateTime[, tz])` expose broken-out local components and UTC offset for debugging sunrise/sunset and DST handling.
 - Documented the recommended UTC storage + local UI workflow (convert user-picked local times back to UTC with `fromLocal`/`parseDateTimeLocal`).
+- `setNtpSyncCallback(...)` so applications can optionally react when SNTP reports a successful sync.
+- `syncNTP()` to immediately trigger a new SNTP sync using the configured NTP server.
 
 ### Changed
 - Replaced the `ESPDateConfig` constructor with an explicit `init(const ESPDateConfig&)` so configuration happens after the Arduino runtime is alive, avoiding early SNTP watchdog resets on some boards.
