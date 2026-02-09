@@ -4,6 +4,7 @@
 #include <unity.h>
 
 #include <cstdlib>
+#include <functional>
 #include <string>
 
 ESPDate date;
@@ -240,19 +241,9 @@ struct NtpSyncTestObserver {
     }
 };
 
-static void ntp_sync_test_context_callback(const DateTime& syncedAtUtc, void* context) {
-    NtpSyncTestObserver* observer = static_cast<NtpSyncTestObserver*>(context);
-    if (!observer) {
-        return;
-    }
-    ++observer->callCount;
-    observer->lastEpoch = syncedAtUtc.epochSeconds;
-}
-
 static void test_ntp_callback_registration_supports_member_binding() {
     NtpSyncTestObserver observer;
-    date.setNtpSyncCallback(&ntp_sync_test_context_callback, &observer);
-    date.setNtpSyncCallback<NtpSyncTestObserver, &NtpSyncTestObserver::onSync>(&observer);
+    date.setNtpSyncCallback(std::bind(&NtpSyncTestObserver::onSync, &observer, std::placeholders::_1));
     date.setNtpSyncCallback(static_cast<ESPDate::NtpSyncCallback>(nullptr));
     TEST_ASSERT_EQUAL(0, observer.callCount);  // registration-only API coverage
 }

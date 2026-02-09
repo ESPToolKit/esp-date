@@ -11,7 +11,7 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 - Local time helpers: `nowLocal()` plus `toLocal(DateTime[, tz])` expose broken-out local components and UTC offset for debugging sunrise/sunset and DST handling.
 - Documented the recommended UTC storage + local UI workflow (convert user-picked local times back to UTC with `fromLocal`/`parseDateTimeLocal`).
 - `setNtpSyncCallback(...)` so applications can optionally react when SNTP reports a successful sync.
-- `setNtpSyncCallback(callback, context)` overload plus template member-method helper to register class instance handlers without raw free-function pointers.
+- `setNtpSyncCallback(const NtpSyncCallable&)` overload so member methods can be registered via `std::bind`.
 - `syncNTP()` to immediately trigger a new SNTP sync using the configured NTP server.
 
 ### Changed

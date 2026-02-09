@@ -30,8 +30,7 @@
 using Utils = ESPDateUtils;
 
 ESPDate::NtpSyncCallback ESPDate::activeNtpSyncCallback_ = nullptr;
-ESPDate::NtpSyncCallbackWithContext ESPDate::activeNtpSyncCallbackWithContext_ = nullptr;
-void* ESPDate::activeNtpSyncCallbackContext_ = nullptr;
+ESPDate::NtpSyncCallable ESPDate::activeNtpSyncCallbackCallable_{};
 
 #if ESPDATE_HAS_SNTP_NOTIFICATION_CB
 void ESPDate::handleSntpSync(struct timeval* tv) {
@@ -41,8 +40,8 @@ void ESPDate::handleSntpSync(struct timeval* tv) {
   }
   const DateTime syncedAtUtc{syncedEpoch};
 
-  if (activeNtpSyncCallbackWithContext_) {
-    activeNtpSyncCallbackWithContext_(syncedAtUtc, activeNtpSyncCallbackContext_);
+  if (activeNtpSyncCallbackCallable_) {
+    activeNtpSyncCallbackCallable_(syncedAtUtc);
     return;
   }
   if (activeNtpSyncCallback_) {
@@ -125,23 +124,19 @@ void ESPDate::init(const ESPDateConfig& config) {
 
 void ESPDate::setNtpSyncCallback(NtpSyncCallback callback) {
   ntpSyncCallback_ = callback;
-  ntpSyncCallbackWithContext_ = nullptr;
-  ntpSyncCallbackContext_ = nullptr;
+  ntpSyncCallbackCallable_ = NtpSyncCallable{};
   activeNtpSyncCallback_ = callback;
-  activeNtpSyncCallbackWithContext_ = nullptr;
-  activeNtpSyncCallbackContext_ = nullptr;
+  activeNtpSyncCallbackCallable_ = NtpSyncCallable{};
 #if ESPDATE_HAS_SNTP_NOTIFICATION_CB
   sntp_set_time_sync_notification_cb(callback ? &ESPDate::handleSntpSync : nullptr);
 #endif
 }
 
-void ESPDate::setNtpSyncCallback(NtpSyncCallbackWithContext callback, void* context) {
+void ESPDate::setNtpSyncCallback(const NtpSyncCallable& callback) {
   ntpSyncCallback_ = nullptr;
-  ntpSyncCallbackWithContext_ = callback;
-  ntpSyncCallbackContext_ = context;
+  ntpSyncCallbackCallable_ = callback;
   activeNtpSyncCallback_ = nullptr;
-  activeNtpSyncCallbackWithContext_ = callback;
-  activeNtpSyncCallbackContext_ = context;
+  activeNtpSyncCallbackCallable_ = callback;
 #if ESPDATE_HAS_SNTP_NOTIFICATION_CB
   sntp_set_time_sync_notification_cb(callback ? &ESPDate::handleSntpSync : nullptr);
 #endif
@@ -159,9 +154,8 @@ bool ESPDate::applyNtpConfig() const {
 
 #if ESPDATE_HAS_SNTP_NOTIFICATION_CB
   activeNtpSyncCallback_ = ntpSyncCallback_;
-  activeNtpSyncCallbackWithContext_ = ntpSyncCallbackWithContext_;
-  activeNtpSyncCallbackContext_ = ntpSyncCallbackContext_;
-  const bool hasCallback = (ntpSyncCallback_ != nullptr) || (ntpSyncCallbackWithContext_ != nullptr);
+  activeNtpSyncCallbackCallable_ = ntpSyncCallbackCallable_;
+  const bool hasCallback = (ntpSyncCallback_ != nullptr) || static_cast<bool>(ntpSyncCallbackCallable_);
   sntp_set_time_sync_notification_cb(hasCallback ? &ESPDate::handleSntpSync : nullptr);
 #endif
 
