@@ -3,6 +3,15 @@
 
 ESPDate date;
 
+class SyncObserver {
+ public:
+  void onNtpSync(const DateTime &syncedAtUtc) {
+    Serial.printf("NTP synced, epoch: %lld\n", static_cast<long long>(syncedAtUtc.epochSeconds));
+  }
+};
+
+SyncObserver syncObserver;
+
 void printFormatted(const char *label, const DateTime &dt) {
   char buf[32];
   if (date.formatUtc(dt, ESPDateFormat::Iso8601, buf, sizeof(buf))) {
@@ -17,9 +26,7 @@ void setup() {
   Serial.println("ESPDate basic example");
   Serial.println("Connect WiFi so configTzTime can sync time, or set the system clock manually before using date.now().");
   date.init(ESPDateConfig{0.0f, 0.0f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org"});
-  date.setNtpSyncCallback([](const DateTime &syncedAtUtc) {
-    Serial.printf("NTP synced, epoch: %lld\n", static_cast<long long>(syncedAtUtc.epochSeconds));
-  });
+  date.setNtpSyncCallback<SyncObserver, &SyncObserver::onNtpSync>(&syncObserver);
   date.syncNTP();  // force an immediate refresh using configured NTP
 
   DateTime now = date.now();

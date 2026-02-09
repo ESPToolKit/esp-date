@@ -58,11 +58,31 @@ struct MoonPhaseResult {
 class ESPDate {
  public:
   using NtpSyncCallback = void (*)(const DateTime& syncedAtUtc);
+  using NtpSyncCallbackWithContext = void (*)(const DateTime& syncedAtUtc, void* context);
 
   ESPDate();
   void init(const ESPDateConfig& config);
   // Optional SNTP sync notification. Pass nullptr to clear.
   void setNtpSyncCallback(NtpSyncCallback callback);
+  // Optional SNTP sync notification with user context (e.g. class instance pointer).
+  // Pass nullptr to clear.
+  void setNtpSyncCallback(NtpSyncCallbackWithContext callback, void* context);
+  template <typename T, void (T::*Method)(const DateTime&)>
+  void setNtpSyncCallback(T* instance) {
+    if (!instance) {
+      setNtpSyncCallback(static_cast<NtpSyncCallbackWithContext>(nullptr), nullptr);
+      return;
+    }
+    setNtpSyncCallback(&ESPDate::memberNtpSyncThunk<T, Method>, static_cast<void*>(instance));
+  }
+  template <typename T, void (T::*Method)(const DateTime&) const>
+  void setNtpSyncCallback(const T* instance) {
+    if (!instance) {
+      setNtpSyncCallback(static_cast<NtpSyncCallbackWithContext>(nullptr), nullptr);
+      return;
+    }
+    setNtpSyncCallback(&ESPDate::constMemberNtpSyncThunk<T, Method>, const_cast<T*>(instance));
+  }
   // Triggers an immediate NTP sync with the configured server.
   // Returns false when no NTP server is configured or SNTP runtime support is unavailable.
   bool syncNTP();
@@ -219,6 +239,22 @@ class ESPDate {
   static void handleSntpSync(struct timeval* tv);
 #  endif
 #endif
+  template <typename T, void (T::*Method)(const DateTime&)>
+  static void memberNtpSyncThunk(const DateTime& syncedAtUtc, void* context) {
+    if (!context) {
+      return;
+    }
+    T* instance = static_cast<T*>(context);
+    (instance->*Method)(syncedAtUtc);
+  }
+  template <typename T, void (T::*Method)(const DateTime&) const>
+  static void constMemberNtpSyncThunk(const DateTime& syncedAtUtc, void* context) {
+    if (!context) {
+      return;
+    }
+    const T* instance = static_cast<const T*>(context);
+    (instance->*Method)(syncedAtUtc);
+  }
   bool applyNtpConfig() const;
 
   SunCycleResult sunriseFromConfig(const DateTime& day) const;
@@ -230,6 +266,10 @@ class ESPDate {
   std::string timeZone_;
   std::string ntpServer_;
   NtpSyncCallback ntpSyncCallback_ = nullptr;
+  NtpSyncCallbackWithContext ntpSyncCallbackWithContext_ = nullptr;
+  void* ntpSyncCallbackContext_ = nullptr;
   static NtpSyncCallback activeNtpSyncCallback_;
+  static NtpSyncCallbackWithContext activeNtpSyncCallbackWithContext_;
+  static void* activeNtpSyncCallbackContext_;
   bool hasLocation_ = false;
 };

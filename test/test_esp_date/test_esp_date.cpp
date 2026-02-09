@@ -230,6 +230,33 @@ static void test_sync_ntp_requires_server_config() {
     TEST_ASSERT_FALSE(onlyTimezone.syncNTP());
 }
 
+struct NtpSyncTestObserver {
+    int callCount = 0;
+    int64_t lastEpoch = 0;
+
+    void onSync(const DateTime& syncedAtUtc) {
+        ++callCount;
+        lastEpoch = syncedAtUtc.epochSeconds;
+    }
+};
+
+static void ntp_sync_test_context_callback(const DateTime& syncedAtUtc, void* context) {
+    NtpSyncTestObserver* observer = static_cast<NtpSyncTestObserver*>(context);
+    if (!observer) {
+        return;
+    }
+    ++observer->callCount;
+    observer->lastEpoch = syncedAtUtc.epochSeconds;
+}
+
+static void test_ntp_callback_registration_supports_member_binding() {
+    NtpSyncTestObserver observer;
+    date.setNtpSyncCallback(&ntp_sync_test_context_callback, &observer);
+    date.setNtpSyncCallback<NtpSyncTestObserver, &NtpSyncTestObserver::onSync>(&observer);
+    date.setNtpSyncCallback(static_cast<ESPDate::NtpSyncCallback>(nullptr));
+    TEST_ASSERT_EQUAL(0, observer.callCount);  // registration-only API coverage
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -253,6 +280,7 @@ void setup() {
     RUN_TEST(test_to_local_breakdown);
     RUN_TEST(test_moon_phase_full_and_new_moon);
     RUN_TEST(test_sync_ntp_requires_server_config);
+    RUN_TEST(test_ntp_callback_registration_supports_member_binding);
     UNITY_END();
 }
 
