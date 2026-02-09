@@ -35,6 +35,7 @@ using Utils = ESPDateUtils;
 
 ESPDate::NtpSyncCallback ESPDate::activeNtpSyncCallback_ = nullptr;
 ESPDate::NtpSyncCallable ESPDate::activeNtpSyncCallbackCallable_{};
+ESPDate* ESPDate::activeNtpSyncOwner_ = nullptr;
 
 #if ESPDATE_HAS_SNTP_NOTIFICATION_CB
 void ESPDate::handleSntpSync(struct timeval* tv) {
@@ -43,6 +44,10 @@ void ESPDate::handleSntpSync(struct timeval* tv) {
     syncedEpoch = static_cast<int64_t>(tv->tv_sec);
   }
   const DateTime syncedAtUtc{syncedEpoch};
+  if (activeNtpSyncOwner_) {
+    activeNtpSyncOwner_->lastNtpSync_ = syncedAtUtc;
+    activeNtpSyncOwner_->hasLastNtpSync_ = true;
+  }
 
   if (activeNtpSyncCallbackCallable_) {
     activeNtpSyncCallbackCallable_(syncedAtUtc);
@@ -111,6 +116,8 @@ void ESPDate::init(const ESPDateConfig& config) {
   timeZone_.clear();
   ntpServer_.clear();
   ntpSyncIntervalMs_ = config.ntpSyncIntervalMs;
+  hasLastNtpSync_ = false;
+  lastNtpSync_ = DateTime{};
 
   const bool hasTz = config.timeZone && config.timeZone[0] != '\0';
   const bool hasNtp = config.ntpServer && config.ntpServer[0] != '\0';
@@ -128,22 +135,27 @@ void ESPDate::init(const ESPDateConfig& config) {
 }
 
 void ESPDate::setNtpSyncCallback(NtpSyncCallback callback) {
+  activeNtpSyncOwner_ = this;
   ntpSyncCallback_ = callback;
   ntpSyncCallbackCallable_ = NtpSyncCallable{};
   activeNtpSyncCallback_ = callback;
   activeNtpSyncCallbackCallable_ = NtpSyncCallable{};
 #if ESPDATE_HAS_SNTP_NOTIFICATION_CB
-  sntp_set_time_sync_notification_cb(callback ? &ESPDate::handleSntpSync : nullptr);
+  const bool keepTrackingEnabled = !ntpServer_.empty();
+  sntp_set_time_sync_notification_cb((callback || keepTrackingEnabled) ? &ESPDate::handleSntpSync : nullptr);
 #endif
 }
 
 void ESPDate::setNtpSyncCallback(const NtpSyncCallable& callback) {
+  activeNtpSyncOwner_ = this;
   ntpSyncCallback_ = nullptr;
   ntpSyncCallbackCallable_ = callback;
   activeNtpSyncCallback_ = nullptr;
   activeNtpSyncCallbackCallable_ = callback;
 #if ESPDATE_HAS_SNTP_NOTIFICATION_CB
-  sntp_set_time_sync_notification_cb(callback ? &ESPDate::handleSntpSync : nullptr);
+  const bool keepTrackingEnabled = !ntpServer_.empty();
+  sntp_set_time_sync_notification_cb((static_cast<bool>(callback) || keepTrackingEnabled) ? &ESPDate::handleSntpSync
+                                                                                           : nullptr);
 #endif
 }
 
@@ -159,6 +171,14 @@ bool ESPDate::setNtpSyncIntervalMs(uint32_t intervalMs) {
 #endif
 }
 
+bool ESPDate::hasLastNtpSync() const {
+  return hasLastNtpSync_;
+}
+
+DateTime ESPDate::lastNtpSync() const {
+  return lastNtpSync_;
+}
+
 bool ESPDate::syncNTP() {
   return applyNtpConfig();
 }
@@ -168,12 +188,14 @@ bool ESPDate::applyNtpConfig() const {
   if (ntpServer_.empty()) {
     return false;
   }
+  activeNtpSyncOwner_ = const_cast<ESPDate*>(this);
 
 #if ESPDATE_HAS_SNTP_NOTIFICATION_CB
   activeNtpSyncCallback_ = ntpSyncCallback_;
   activeNtpSyncCallbackCallable_ = ntpSyncCallbackCallable_;
   const bool hasCallback = (ntpSyncCallback_ != nullptr) || static_cast<bool>(ntpSyncCallbackCallable_);
-  sntp_set_time_sync_notification_cb(hasCallback ? &ESPDate::handleSntpSync : nullptr);
+  sntp_set_time_sync_notification_cb((hasCallback || activeNtpSyncOwner_ != nullptr) ? &ESPDate::handleSntpSync
+                                                                                      : nullptr);
 #endif
 #if ESPDATE_HAS_SNTP_SYNC_INTERVAL
   if (ntpSyncIntervalMs_ > 0) {

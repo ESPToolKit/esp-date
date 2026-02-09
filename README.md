@@ -19,6 +19,7 @@ ESPDate is a tiny C++17 helper for ESP32 projects that makes working with dates 
 - **Moon phase**: `moonPhase` returns the current lunar phase angle and illumination fraction for any moment.
 - **Optional NTP bootstrap**: call `init` with `ESPDateConfig` containing both `timeZone` and `ntpServer` to set TZ and start SNTP after Arduino/WiFi is ready.
 - **NTP sync callback + manual re-sync**: register `setNtpSyncCallback(...)` with a function, lambda, or `std::bind`, call `syncNTP()` anytime to trigger an immediate refresh, and optionally override SNTP interval via `ntpSyncIntervalMs` / `setNtpSyncIntervalMs(...)`.
+- **Last sync tracking**: `hasLastNtpSync()` / `lastNtpSync()` expose the latest SNTP sync timestamp kept inside `ESPDate`.
 - **Local breakdown helpers**: `nowLocal()` / `toLocal()` surface the broken-out local time (with UTC offset) for quick DST/debug checks; feed sunrise/sunset results into `toLocal` to read them in local time.
 - **Friendly month names**: `monthName(int|DateTime)` returns `"January"` … `"December"` for quick labels.
 - **Class-based API**: everything hangs off a single `ESPDate` instance; no global namespace clutter.
@@ -27,6 +28,7 @@ ESPDate is a tiny C++17 helper for ESP32 projects that makes working with dates 
 ESPDate does not configure SNTP by default. Call `init` with a POSIX TZ string plus an `ntpServer` to have ESPDate call `configTzTime` for you—do this after the Arduino runtime and WiFi are up to avoid early watchdog resets. Otherwise you remain in control of time-zone setup and system clock sync.
 `syncNTP()` returns `true` only when an NTP server is configured and the runtime supports `configTzTime`.
 SNTP exposes a system-level sync hook, so the last `setNtpSyncCallback(...)` registration is the active callback.
+For the same reason, `lastNtpSync()` is tracked on the currently active `ESPDate` instance.
 Example member-method binding style:
 `date.setNtpSyncCallback(std::bind(&App::handleNTPSync, this, std::placeholders::_1));`
 Set interval from config or at runtime:
@@ -62,6 +64,9 @@ void setup() {
     });
     date.setNtpSyncIntervalMs(10 * 60 * 1000); // optional runtime update: 10 minutes
     date.syncNTP(); // optional: force an immediate re-sync
+    if (date.hasLastNtpSync()) {
+        Serial.printf("Last NTP sync: %lld\n", static_cast<long long>(date.lastNtpSync().epochSeconds));
+    }
 
     // Make sure system time is set up (SNTP / manual) before calling date.now()
 
@@ -148,6 +153,8 @@ public:
     void setNtpSyncCallback(NtpSyncCallback callback);
     void setNtpSyncCallback(const NtpSyncCallable& callback);
     bool setNtpSyncIntervalMs(uint32_t intervalMs);
+    bool hasLastNtpSync() const;
+    DateTime lastNtpSync() const;
     bool syncNTP();
 
     // Time sources

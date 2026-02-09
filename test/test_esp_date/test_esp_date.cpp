@@ -252,6 +252,12 @@ static void test_ntp_sync_interval_setter_accepts_default() {
     TEST_ASSERT_TRUE(date.setNtpSyncIntervalMs(0));
 }
 
+static void test_last_ntp_sync_defaults_to_empty() {
+    ESPDate tracker;
+    TEST_ASSERT_FALSE(tracker.hasLastNtpSync());
+    TEST_ASSERT_EQUAL_INT64(0, tracker.lastNtpSync().epochSeconds);
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -277,6 +283,7 @@ void setup() {
     RUN_TEST(test_sync_ntp_requires_server_config);
     RUN_TEST(test_ntp_callback_registration_supports_member_binding);
     RUN_TEST(test_ntp_sync_interval_setter_accepts_default);
+    RUN_TEST(test_last_ntp_sync_defaults_to_empty);
     UNITY_END();
 }
 

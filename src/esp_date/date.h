@@ -71,6 +71,11 @@ class ESPDate {
   // Adjusts SNTP sync interval in milliseconds. Pass 0 to keep the runtime default.
   // Returns false when the runtime does not expose interval control.
   bool setNtpSyncIntervalMs(uint32_t intervalMs);
+  // True after at least one successful SNTP sync callback was received.
+  bool hasLastNtpSync() const;
+  // Returns the last SNTP sync timestamp (UTC epoch-backed DateTime).
+  // When hasLastNtpSync() is false this returns DateTime{}.
+  DateTime lastNtpSync() const;
   // Triggers an immediate NTP sync with the configured server.
   // Returns false when no NTP server is configured or SNTP runtime support is unavailable.
   bool syncNTP();
@@ -238,9 +243,12 @@ class ESPDate {
   std::string timeZone_;
   std::string ntpServer_;
   uint32_t ntpSyncIntervalMs_ = 0;
+  DateTime lastNtpSync_{};
+  bool hasLastNtpSync_ = false;
   NtpSyncCallback ntpSyncCallback_ = nullptr;
   NtpSyncCallable ntpSyncCallbackCallable_;
   static NtpSyncCallback activeNtpSyncCallback_;
   static NtpSyncCallable activeNtpSyncCallbackCallable_;
+  static ESPDate* activeNtpSyncOwner_;
   bool hasLocation_ = false;
 };
