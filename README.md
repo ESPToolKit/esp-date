@@ -21,6 +21,7 @@ ESPDate is a tiny C++17 helper for ESP32 projects that makes working with dates 
 - **Moon phase**: `moonPhase` returns the current lunar phase angle and illumination fraction for any moment.
 - **Optional NTP bootstrap**: call `init` with `ESPDateConfig` containing both `timeZone` and `ntpServer` to set TZ and start SNTP after Arduino/WiFi is ready.
 - **NTP sync callback + manual re-sync**: register `setNtpSyncCallback(...)` with a function, lambda, or `std::bind`, call `syncNTP()` anytime to trigger an immediate refresh, and optionally override SNTP interval via `ntpSyncIntervalMs` / `setNtpSyncIntervalMs(...)`.
+- **Explicit lifecycle cleanup**: `deinit()` unregisters ESPDate-owned SNTP callback hooks; the destructor calls it automatically.
 - **Last sync tracking**: `hasLastNtpSync()` / `lastNtpSync()` expose the latest SNTP sync timestamp kept inside `ESPDate`.
 - **Last sync string helpers**: `lastNtpSyncStringLocal/Utc` provide direct formatting helpers for `lastNtpSync`.
 - **Local breakdown helpers**: `nowLocal()` / `toLocal()` surface the broken-out local time (with UTC offset) for quick DST/debug checks; feed sunrise/sunset results into `toLocal` to read them in local time.
@@ -176,7 +177,9 @@ public:
     using NtpSyncCallback = void (*)(const DateTime& syncedAtUtc);
     using NtpSyncCallable = std::function<void(const DateTime& syncedAtUtc)>;
 
+    ~ESPDate();
     void init(const ESPDateConfig &config);
+    void deinit();
     void setNtpSyncCallback(NtpSyncCallback callback);
     template <typename Callable>
     void setNtpSyncCallback(Callable&& callback); // capturing lambda/std::bind/functor

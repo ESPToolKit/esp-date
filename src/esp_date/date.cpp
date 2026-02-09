@@ -184,6 +184,26 @@ std::string LocalDateTime::localString() const {
 
 ESPDate::ESPDate() = default;
 
+ESPDate::~ESPDate() {
+  deinit();
+}
+
+void ESPDate::deinit() {
+  ntpSyncCallback_ = nullptr;
+  ntpSyncCallbackCallable_ = NtpSyncCallable{};
+  hasLastNtpSync_ = false;
+  lastNtpSync_ = DateTime{};
+
+  if (activeNtpSyncOwner_ == this) {
+    activeNtpSyncOwner_ = nullptr;
+    activeNtpSyncCallback_ = nullptr;
+    activeNtpSyncCallbackCallable_ = NtpSyncCallable{};
+#if ESPDATE_HAS_SNTP_NOTIFICATION_CB
+    sntp_set_time_sync_notification_cb(nullptr);
+#endif
+  }
+}
+
 void ESPDate::init(const ESPDateConfig& config) {
   latitude_ = config.latitude;
   longitude_ = config.longitude;

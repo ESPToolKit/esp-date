@@ -27,6 +27,7 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 ### Fixed
 - Restored builds by adding the missing internal `utils.h` helpers referenced by the sun/scheduler code paths.
 - Resolved ambiguous `setNtpSyncCallback(...)` overload selection for non-capturing lambdas on ESP32 toolchains.
+- Added `ESPDate::deinit()` and destructor cleanup so a destroyed active instance releases SNTP callback ownership instead of leaving stale global callback state.
 
 ## [1.0.1] - 2025-12-09
 ### Added

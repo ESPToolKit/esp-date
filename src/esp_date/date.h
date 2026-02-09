@@ -74,7 +74,9 @@ class ESPDate {
   using NtpSyncCallable = std::function<void(const DateTime& syncedAtUtc)>;
 
   ESPDate();
+  ~ESPDate();
   void init(const ESPDateConfig& config);
+  void deinit();
   // Optional SNTP sync notification. Pass nullptr to clear.
   void setNtpSyncCallback(NtpSyncCallback callback);
   // Accepts capturing lambdas / std::bind / functors.
