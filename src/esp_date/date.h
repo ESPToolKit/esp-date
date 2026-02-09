@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <time.h>
 #include <string>
+#include <type_traits>
+#include <utility>
 
 struct timeval;
 
@@ -75,8 +77,15 @@ class ESPDate {
   void init(const ESPDateConfig& config);
   // Optional SNTP sync notification. Pass nullptr to clear.
   void setNtpSyncCallback(NtpSyncCallback callback);
-  // Accepts lambdas / std::bind / functors.
-  void setNtpSyncCallback(const NtpSyncCallable& callback);
+  // Accepts capturing lambdas / std::bind / functors.
+  // Non-capturing lambdas bind to the function-pointer overload above.
+  template <typename Callable,
+            typename std::enable_if<
+                !std::is_convertible<typename std::decay<Callable>::type, NtpSyncCallback>::value,
+                int>::type = 0>
+  void setNtpSyncCallback(Callable&& callback) {
+    setNtpSyncCallbackCallable(NtpSyncCallable(std::forward<Callable>(callback)));
+  }
   // Adjusts SNTP sync interval in milliseconds. Pass 0 to keep the runtime default.
   // Returns false when the runtime does not expose interval control.
   bool setNtpSyncIntervalMs(uint32_t intervalMs);
@@ -264,6 +273,7 @@ class ESPDate {
   static void handleSntpSync(struct timeval* tv);
 #  endif
 #endif
+  void setNtpSyncCallbackCallable(const NtpSyncCallable& callback);
   bool applyNtpConfig() const;
 
   SunCycleResult sunriseFromConfig(const DateTime& day) const;

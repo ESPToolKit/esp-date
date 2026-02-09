@@ -178,7 +178,8 @@ public:
 
     void init(const ESPDateConfig &config);
     void setNtpSyncCallback(NtpSyncCallback callback);
-    void setNtpSyncCallback(const NtpSyncCallable& callback);
+    template <typename Callable>
+    void setNtpSyncCallback(Callable&& callback); // capturing lambda/std::bind/functor
     bool setNtpSyncIntervalMs(uint32_t intervalMs);
     bool hasLastNtpSync() const;
     DateTime lastNtpSync() const;

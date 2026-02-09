@@ -221,7 +221,7 @@ void ESPDate::setNtpSyncCallback(NtpSyncCallback callback) {
 #endif
 }
 
-void ESPDate::setNtpSyncCallback(const NtpSyncCallable& callback) {
+void ESPDate::setNtpSyncCallbackCallable(const NtpSyncCallable& callback) {
   activeNtpSyncOwner_ = this;
   ntpSyncCallback_ = nullptr;
   ntpSyncCallbackCallable_ = callback;
