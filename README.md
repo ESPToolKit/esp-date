@@ -15,12 +15,14 @@ ESPDate is a tiny C++17 helper for ESP32 projects that makes working with dates 
 - **Calendar helpers**: `startOfDay*`, `endOfDay*`, `startOfMonth*`, `endOfMonth*`, `isLeapYear`, `daysInMonth`, getters for year/month/day/weekday.
 - **Formatting / parsing**: ISO-8601 and `YYYY-MM-DD HH:MM:SS` helpers, plus `strftime`-style patterns for UTC or local time.
 - **String helpers**: embedded-safe buffer methods and `std::string` convenience wrappers for `DateTime`, `LocalDateTime`, `nowUtc`, and `nowLocal`.
+- **Direct value formatting**: `DateTime::localString/utcString` and `LocalDateTime::localString` let individual values format themselves.
 - **Sunrise / sunset**: compute daily sun times from lat/lon using numeric offsets or POSIX TZ strings (auto-DST aware).
 - **DST detection**: `isDstActive` reports whether daylight saving time applies using the stored TZ, an explicit POSIX TZ string, or the current system TZ.
 - **Moon phase**: `moonPhase` returns the current lunar phase angle and illumination fraction for any moment.
 - **Optional NTP bootstrap**: call `init` with `ESPDateConfig` containing both `timeZone` and `ntpServer` to set TZ and start SNTP after Arduino/WiFi is ready.
 - **NTP sync callback + manual re-sync**: register `setNtpSyncCallback(...)` with a function, lambda, or `std::bind`, call `syncNTP()` anytime to trigger an immediate refresh, and optionally override SNTP interval via `ntpSyncIntervalMs` / `setNtpSyncIntervalMs(...)`.
 - **Last sync tracking**: `hasLastNtpSync()` / `lastNtpSync()` expose the latest SNTP sync timestamp kept inside `ESPDate`.
+- **Last sync string helpers**: `lastNtpSyncStringLocal/Utc` provide direct formatting helpers for `lastNtpSync`.
 - **Local breakdown helpers**: `nowLocal()` / `toLocal()` surface the broken-out local time (with UTC offset) for quick DST/debug checks; feed sunrise/sunset results into `toLocal` to read them in local time.
 - **Friendly month names**: `monthName(int|DateTime)` returns `"January"` … `"December"` for quick labels.
 - **Class-based API**: everything hangs off a single `ESPDate` instance; no global namespace clutter.
@@ -67,6 +69,10 @@ void setup() {
     date.syncNTP(); // optional: force an immediate re-sync
     if (date.hasLastNtpSync()) {
         Serial.printf("Last NTP sync: %lld\n", static_cast<long long>(date.lastNtpSync().epochSeconds));
+        char lastSyncBuf[32];
+        if (date.lastNtpSyncStringLocal(lastSyncBuf, sizeof(lastSyncBuf))) {
+            Serial.printf("Last NTP sync local: %s\n", lastSyncBuf);
+        }
     }
 
     // Make sure system time is set up (SNTP / manual) before calling date.now()
@@ -143,10 +149,23 @@ struct DateTime {
     int hourUtc() const;    // 0..23
     int minuteUtc() const;  // 0..59
     int secondUtc() const;  // 0..59
+
+    bool utcString(char* outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
+    bool localString(char* outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
+    std::string utcString(ESPDateFormat style = ESPDateFormat::DateTime) const;
+    std::string localString(ESPDateFormat style = ESPDateFormat::DateTime) const;
 };
 ```
 
 It is cheap to copy (just an `int64_t`), safe to compare and subtract, and convertible to/from `struct tm` internally by ESPDate. You never manipulate `struct tm` directly—always go through ESPDate.
+
+```cpp
+DateTime lastYear = date.subYears(1);
+char buf[32];
+if (lastYear.localString(buf, sizeof(buf))) {
+    Serial.printf("Last year local: %s\n", buf);
+}
+```
 
 ## API Overview
 The main module-type class you will use:
@@ -170,12 +189,16 @@ public:
     bool localDateTimeToString(const LocalDateTime &dt, char *outBuffer, size_t outSize) const;
     bool nowUtcString(char *outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
     bool nowLocalString(char *outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
+    bool lastNtpSyncStringUtc(char *outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
+    bool lastNtpSyncStringLocal(char *outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
 
     std::string dateTimeToStringUtc(const DateTime &dt, ESPDateFormat style = ESPDateFormat::DateTime) const;
     std::string dateTimeToStringLocal(const DateTime &dt, ESPDateFormat style = ESPDateFormat::DateTime) const;
     std::string localDateTimeToString(const LocalDateTime &dt) const;
     std::string nowUtcString(ESPDateFormat style = ESPDateFormat::DateTime) const;
     std::string nowLocalString(ESPDateFormat style = ESPDateFormat::DateTime) const;
+    std::string lastNtpSyncStringUtc(ESPDateFormat style = ESPDateFormat::DateTime) const;
+    std::string lastNtpSyncStringLocal(ESPDateFormat style = ESPDateFormat::DateTime) const;
 
     // Time sources
     DateTime now() const;
@@ -265,6 +288,11 @@ public:
 ```
 
 ## Examples
+Full sketches:
+- `examples/basic_date/basic_date.ino` for broad API coverage.
+- `examples/string_helpers/string_helpers.ino` for buffer + `std::string` formatting APIs (including direct `DateTime`/`LocalDateTime` methods).
+- `examples/ntp_sync_tracking/ntp_sync_tracking.ino` for `syncNTP`, callback handling, and `lastNtpSyncStringLocal/Utc`.
+
 Difference between timestamps:
 
 ```cpp
@@ -307,6 +335,21 @@ DateTime thisBilling = date.setTimeOfDayLocal(
     3, 0, 0); // 03:00 local on the 1st
 
 DateTime nextBilling = date.addMonths(thisBilling, 1);
+```
+
+Formatting standalone values without ESPDate round-trips:
+
+```cpp
+DateTime lastYear = date.subYears(1);
+
+char localBuf[32];
+if (lastYear.localString(localBuf, sizeof(localBuf))) {
+  Serial.printf("Last year local: %s\n", localBuf);
+}
+
+LocalDateTime local = date.toLocal(lastYear);
+std::string localString = local.localString();
+Serial.printf("LocalDateTime string: %s\n", localString.c_str());
 ```
 
 ## Sunrise / Sunset

@@ -34,6 +34,7 @@ void setup() {
   DateTime now = date.now();
   DateTime tomorrow = date.addDays(now, 1);
   DateTime lastWeek = date.subDays(now, 7);
+  DateTime lastYear = date.subYears(now, 1);
 
   printFormatted("Now (UTC): ", now);
   printFormatted("Tomorrow (UTC): ", tomorrow);
@@ -45,6 +46,11 @@ void setup() {
   }
   std::string utcNowString = date.nowUtcString();
   Serial.printf("Now (UTC string): %s\n", utcNowString.c_str());
+
+  char lastYearLocalBuffer[32];
+  if (lastYear.localString(lastYearLocalBuffer, sizeof(lastYearLocalBuffer))) {
+    Serial.printf("Last year (Local string): %s\n", lastYearLocalBuffer);
+  }
 
   int64_t deltaDays = date.differenceInDays(tomorrow, now);
   Serial.printf("Days between now and tomorrow: %lld\n", static_cast<long long>(deltaDays));

@@ -8,6 +8,13 @@
 
 struct timeval;
 
+enum class ESPDateFormat {
+  Iso8601,
+  DateTime,
+  Date,
+  Time
+};
+
 struct DateTime {
   int64_t epochSeconds = 0;  // seconds since 1970-01-01T00:00:00Z
 
@@ -17,6 +24,12 @@ struct DateTime {
   int hourUtc() const;    // 0..23
   int minuteUtc() const;  // 0..59
   int secondUtc() const;  // 0..59
+
+  // Uses current system TZ for local formatting.
+  bool utcString(char* outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
+  bool localString(char* outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
+  std::string utcString(ESPDateFormat style = ESPDateFormat::DateTime) const;
+  std::string localString(ESPDateFormat style = ESPDateFormat::DateTime) const;
 };
 
 struct LocalDateTime {
@@ -29,13 +42,9 @@ struct LocalDateTime {
   int second = 0;
   int offsetMinutes = 0;  // local - UTC
   DateTime utc{};
-};
 
-enum class ESPDateFormat {
-  Iso8601,
-  DateTime,
-  Date,
-  Time
+  bool localString(char* outBuffer, size_t outSize) const;
+  std::string localString() const;
 };
 
 struct ESPDateConfig {
@@ -184,12 +193,16 @@ class ESPDate {
   bool localDateTimeToString(const LocalDateTime& dt, char* outBuffer, size_t outSize) const;
   bool nowUtcString(char* outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
   bool nowLocalString(char* outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
+  bool lastNtpSyncStringUtc(char* outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
+  bool lastNtpSyncStringLocal(char* outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
 
   std::string dateTimeToStringUtc(const DateTime& dt, ESPDateFormat style = ESPDateFormat::DateTime) const;
   std::string dateTimeToStringLocal(const DateTime& dt, ESPDateFormat style = ESPDateFormat::DateTime) const;
   std::string localDateTimeToString(const LocalDateTime& dt) const;
   std::string nowUtcString(ESPDateFormat style = ESPDateFormat::DateTime) const;
   std::string nowLocalString(ESPDateFormat style = ESPDateFormat::DateTime) const;
+  std::string lastNtpSyncStringUtc(ESPDateFormat style = ESPDateFormat::DateTime) const;
+  std::string lastNtpSyncStringLocal(ESPDateFormat style = ESPDateFormat::DateTime) const;
 
   struct ParseResult {
     bool ok;

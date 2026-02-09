@@ -256,6 +256,12 @@ static void test_last_ntp_sync_defaults_to_empty() {
     ESPDate tracker;
     TEST_ASSERT_FALSE(tracker.hasLastNtpSync());
     TEST_ASSERT_EQUAL_INT64(0, tracker.lastNtpSync().epochSeconds);
+
+    char lastSyncBuf[32];
+    TEST_ASSERT_FALSE(tracker.lastNtpSyncStringLocal(lastSyncBuf, sizeof(lastSyncBuf)));
+    TEST_ASSERT_FALSE(tracker.lastNtpSyncStringUtc(lastSyncBuf, sizeof(lastSyncBuf)));
+    TEST_ASSERT_TRUE(tracker.lastNtpSyncStringLocal().empty());
+    TEST_ASSERT_TRUE(tracker.lastNtpSyncStringUtc().empty());
 }
 
 static void test_string_helpers_for_datetime_and_local_datetime() {
@@ -265,8 +271,14 @@ static void test_string_helpers_for_datetime_and_local_datetime() {
     TEST_ASSERT_TRUE(date.dateTimeToStringUtc(dt, utcBuf, sizeof(utcBuf)));
     TEST_ASSERT_EQUAL_STRING("2025-01-02 03:04:05", utcBuf);
 
+    char directUtcBuf[32];
+    TEST_ASSERT_TRUE(dt.utcString(directUtcBuf, sizeof(directUtcBuf)));
+    TEST_ASSERT_EQUAL_STRING("2025-01-02 03:04:05", directUtcBuf);
+
     std::string utcString = date.dateTimeToStringUtc(dt);
     TEST_ASSERT_EQUAL_STRING("2025-01-02 03:04:05", utcString.c_str());
+    std::string directUtcString = dt.utcString();
+    TEST_ASSERT_EQUAL_STRING("2025-01-02 03:04:05", directUtcString.c_str());
 
     LocalDateTime local = date.toLocal(dt, "UTC0");
     TEST_ASSERT_TRUE(local.ok);
@@ -275,16 +287,27 @@ static void test_string_helpers_for_datetime_and_local_datetime() {
     TEST_ASSERT_TRUE(date.localDateTimeToString(local, localBuf, sizeof(localBuf)));
     TEST_ASSERT_EQUAL_STRING("2025-01-02 03:04:05", localBuf);
 
+    char directLocalBuf[32];
+    TEST_ASSERT_TRUE(local.localString(directLocalBuf, sizeof(directLocalBuf)));
+    TEST_ASSERT_EQUAL_STRING("2025-01-02 03:04:05", directLocalBuf);
+
     std::string localString = date.localDateTimeToString(local);
     TEST_ASSERT_EQUAL_STRING("2025-01-02 03:04:05", localString.c_str());
+    std::string directLocalString = local.localString();
+    TEST_ASSERT_EQUAL_STRING("2025-01-02 03:04:05", directLocalString.c_str());
 
     char smallBuf[8];
     TEST_ASSERT_FALSE(date.localDateTimeToString(local, smallBuf, sizeof(smallBuf)));
+    TEST_ASSERT_FALSE(local.localString(smallBuf, sizeof(smallBuf)));
 
     char nowBuf[32];
     TEST_ASSERT_TRUE(date.nowUtcString(nowBuf, sizeof(nowBuf)));
     std::string nowLocal = date.nowLocalString();
     TEST_ASSERT_TRUE(!nowLocal.empty());
+
+    DateTime lastYear = date.subYears(1);
+    char lastYearLocalBuf[32];
+    TEST_ASSERT_TRUE(lastYear.localString(lastYearLocalBuf, sizeof(lastYearLocalBuf)));
 }
 
 void setUp() {}

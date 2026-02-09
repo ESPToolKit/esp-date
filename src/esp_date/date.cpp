@@ -34,6 +34,31 @@
 
 using Utils = ESPDateUtils;
 
+namespace {
+const char* patternForStyle(ESPDateFormat style, bool localIso8601) {
+  switch (style) {
+    case ESPDateFormat::Iso8601:
+      return localIso8601 ? "%Y-%m-%dT%H:%M:%S%z" : "%Y-%m-%dT%H:%M:%SZ";
+    case ESPDateFormat::DateTime:
+      return "%Y-%m-%d %H:%M:%S";
+    case ESPDateFormat::Date:
+      return "%Y-%m-%d";
+    case ESPDateFormat::Time:
+      return "%H:%M:%S";
+  }
+  return "%Y-%m-%d %H:%M:%S";
+}
+
+bool formatWithTm(const tm& value, const char* pattern, char* outBuffer, size_t outSize) {
+  if (!pattern || !outBuffer || outSize == 0) {
+    return false;
+  }
+  tm copy = value;
+  const size_t written = strftime(outBuffer, outSize, pattern, &copy);
+  return written > 0;
+}
+}  // namespace
+
 ESPDate::NtpSyncCallback ESPDate::activeNtpSyncCallback_ = nullptr;
 ESPDate::NtpSyncCallable ESPDate::activeNtpSyncCallbackCallable_{};
 ESPDate* ESPDate::activeNtpSyncOwner_ = nullptr;
@@ -106,6 +131,55 @@ int DateTime::secondUtc() const {
     return 0;
   }
   return t.tm_sec;
+}
+
+bool DateTime::utcString(char* outBuffer, size_t outSize, ESPDateFormat style) const {
+  tm t{};
+  if (!Utils::toUtcTm(*this, t)) {
+    return false;
+  }
+  return formatWithTm(t, patternForStyle(style, false), outBuffer, outSize);
+}
+
+bool DateTime::localString(char* outBuffer, size_t outSize, ESPDateFormat style) const {
+  tm t{};
+  if (!Utils::toLocalTm(*this, t)) {
+    return false;
+  }
+  return formatWithTm(t, patternForStyle(style, true), outBuffer, outSize);
+}
+
+std::string DateTime::utcString(ESPDateFormat style) const {
+  char buffer[40];
+  if (!utcString(buffer, sizeof(buffer), style)) {
+    return std::string();
+  }
+  return std::string(buffer);
+}
+
+std::string DateTime::localString(ESPDateFormat style) const {
+  char buffer[48];
+  if (!localString(buffer, sizeof(buffer), style)) {
+    return std::string();
+  }
+  return std::string(buffer);
+}
+
+bool LocalDateTime::localString(char* outBuffer, size_t outSize) const {
+  if (!ok || !outBuffer || outSize == 0) {
+    return false;
+  }
+  const int written =
+      std::snprintf(outBuffer, outSize, "%04d-%02d-%02d %02d:%02d:%02d", year, month, day, hour, minute, second);
+  return written > 0 && static_cast<size_t>(written) < outSize;
+}
+
+std::string LocalDateTime::localString() const {
+  char buffer[32];
+  if (!localString(buffer, sizeof(buffer))) {
+    return std::string();
+  }
+  return std::string(buffer);
 }
 
 ESPDate::ESPDate() = default;
@@ -703,41 +777,11 @@ int ESPDate::daysInMonth(int year, int month) const {
 }
 
 bool ESPDate::formatUtc(const DateTime& dt, ESPDateFormat style, char* outBuffer, size_t outSize) const {
-  const char* pattern = nullptr;
-  switch (style) {
-    case ESPDateFormat::Iso8601:
-      pattern = "%Y-%m-%dT%H:%M:%SZ";
-      break;
-    case ESPDateFormat::DateTime:
-      pattern = "%Y-%m-%d %H:%M:%S";
-      break;
-    case ESPDateFormat::Date:
-      pattern = "%Y-%m-%d";
-      break;
-    case ESPDateFormat::Time:
-      pattern = "%H:%M:%S";
-      break;
-  }
-  return formatWithPatternUtc(dt, pattern, outBuffer, outSize);
+  return formatWithPatternUtc(dt, patternForStyle(style, false), outBuffer, outSize);
 }
 
 bool ESPDate::formatLocal(const DateTime& dt, ESPDateFormat style, char* outBuffer, size_t outSize) const {
-  const char* pattern = nullptr;
-  switch (style) {
-    case ESPDateFormat::Iso8601:
-      pattern = "%Y-%m-%dT%H:%M:%S%z";
-      break;
-    case ESPDateFormat::DateTime:
-      pattern = "%Y-%m-%d %H:%M:%S";
-      break;
-    case ESPDateFormat::Date:
-      pattern = "%Y-%m-%d";
-      break;
-    case ESPDateFormat::Time:
-      pattern = "%H:%M:%S";
-      break;
-  }
-  return formatWithPatternLocal(dt, pattern, outBuffer, outSize);
+  return formatWithPatternLocal(dt, patternForStyle(style, true), outBuffer, outSize);
 }
 
 bool ESPDate::formatWithPatternUtc(const DateTime& dt, const char* pattern, char* outBuffer, size_t outSize) const {
@@ -765,21 +809,15 @@ bool ESPDate::formatWithPatternLocal(const DateTime& dt, const char* pattern, ch
 }
 
 bool ESPDate::dateTimeToStringUtc(const DateTime& dt, char* outBuffer, size_t outSize, ESPDateFormat style) const {
-  return formatUtc(dt, style, outBuffer, outSize);
+  return dt.utcString(outBuffer, outSize, style);
 }
 
 bool ESPDate::dateTimeToStringLocal(const DateTime& dt, char* outBuffer, size_t outSize, ESPDateFormat style) const {
-  return formatLocal(dt, style, outBuffer, outSize);
+  return dt.localString(outBuffer, outSize, style);
 }
 
 bool ESPDate::localDateTimeToString(const LocalDateTime& dt, char* outBuffer, size_t outSize) const {
-  if (!dt.ok || !outBuffer || outSize == 0) {
-    return false;
-  }
-  const int written =
-      std::snprintf(outBuffer, outSize, "%04d-%02d-%02d %02d:%02d:%02d", dt.year, dt.month, dt.day, dt.hour, dt.minute,
-                    dt.second);
-  return written > 0 && static_cast<size_t>(written) < outSize;
+  return dt.localString(outBuffer, outSize);
 }
 
 bool ESPDate::nowUtcString(char* outBuffer, size_t outSize, ESPDateFormat style) const {
@@ -788,6 +826,20 @@ bool ESPDate::nowUtcString(char* outBuffer, size_t outSize, ESPDateFormat style)
 
 bool ESPDate::nowLocalString(char* outBuffer, size_t outSize, ESPDateFormat style) const {
   return dateTimeToStringLocal(now(), outBuffer, outSize, style);
+}
+
+bool ESPDate::lastNtpSyncStringUtc(char* outBuffer, size_t outSize, ESPDateFormat style) const {
+  if (!hasLastNtpSync_) {
+    return false;
+  }
+  return dateTimeToStringUtc(lastNtpSync_, outBuffer, outSize, style);
+}
+
+bool ESPDate::lastNtpSyncStringLocal(char* outBuffer, size_t outSize, ESPDateFormat style) const {
+  if (!hasLastNtpSync_) {
+    return false;
+  }
+  return dateTimeToStringLocal(lastNtpSync_, outBuffer, outSize, style);
 }
 
 std::string ESPDate::dateTimeToStringUtc(const DateTime& dt, ESPDateFormat style) const {
@@ -820,6 +872,20 @@ std::string ESPDate::nowUtcString(ESPDateFormat style) const {
 
 std::string ESPDate::nowLocalString(ESPDateFormat style) const {
   return dateTimeToStringLocal(now(), style);
+}
+
+std::string ESPDate::lastNtpSyncStringUtc(ESPDateFormat style) const {
+  if (!hasLastNtpSync_) {
+    return std::string();
+  }
+  return dateTimeToStringUtc(lastNtpSync_, style);
+}
+
+std::string ESPDate::lastNtpSyncStringLocal(ESPDateFormat style) const {
+  if (!hasLastNtpSync_) {
+    return std::string();
+  }
+  return dateTimeToStringLocal(lastNtpSync_, style);
 }
 
 ESPDate::ParseResult ESPDate::parseIso8601Utc(const char* str) const {
