@@ -14,6 +14,7 @@ ESPDate is a tiny C++17 helper for ESP32 projects that makes working with dates 
 - **Minute-level comparisons**: `isEqualMinutes`/`isEqualMinutesUtc` for coarse equality.
 - **Calendar helpers**: `startOfDay*`, `endOfDay*`, `startOfMonth*`, `endOfMonth*`, `isLeapYear`, `daysInMonth`, getters for year/month/day/weekday.
 - **Formatting / parsing**: ISO-8601 and `YYYY-MM-DD HH:MM:SS` helpers, plus `strftime`-style patterns for UTC or local time.
+- **String helpers**: embedded-safe buffer methods and `std::string` convenience wrappers for `DateTime`, `LocalDateTime`, `nowUtc`, and `nowLocal`.
 - **Sunrise / sunset**: compute daily sun times from lat/lon using numeric offsets or POSIX TZ strings (auto-DST aware).
 - **DST detection**: `isDstActive` reports whether daylight saving time applies using the stored TZ, an explicit POSIX TZ string, or the current system TZ.
 - **Moon phase**: `moonPhase` returns the current lunar phase angle and illumination fraction for any moment.
@@ -96,6 +97,13 @@ void setup() {
                       local.hour, local.minute, local.second,
                       local.offsetMinutes);
     }
+
+    char localBuf[32];
+    if (date.nowLocalString(localBuf, sizeof(localBuf))) {
+        Serial.printf("Local now (string): %s\n", localBuf);
+    }
+    std::string utcString = date.nowUtcString();
+    Serial.printf("UTC now (string): %s\n", utcString.c_str());
 }
 ```
 
@@ -156,6 +164,18 @@ public:
     bool hasLastNtpSync() const;
     DateTime lastNtpSync() const;
     bool syncNTP();
+
+    bool dateTimeToStringUtc(const DateTime &dt, char *outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
+    bool dateTimeToStringLocal(const DateTime &dt, char *outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
+    bool localDateTimeToString(const LocalDateTime &dt, char *outBuffer, size_t outSize) const;
+    bool nowUtcString(char *outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
+    bool nowLocalString(char *outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
+
+    std::string dateTimeToStringUtc(const DateTime &dt, ESPDateFormat style = ESPDateFormat::DateTime) const;
+    std::string dateTimeToStringLocal(const DateTime &dt, ESPDateFormat style = ESPDateFormat::DateTime) const;
+    std::string localDateTimeToString(const LocalDateTime &dt) const;
+    std::string nowUtcString(ESPDateFormat style = ESPDateFormat::DateTime) const;
+    std::string nowLocalString(ESPDateFormat style = ESPDateFormat::DateTime) const;
 
     // Time sources
     DateTime now() const;

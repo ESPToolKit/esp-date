@@ -258,6 +258,35 @@ static void test_last_ntp_sync_defaults_to_empty() {
     TEST_ASSERT_EQUAL_INT64(0, tracker.lastNtpSync().epochSeconds);
 }
 
+static void test_string_helpers_for_datetime_and_local_datetime() {
+    DateTime dt = date.fromUtc(2025, 1, 2, 3, 4, 5);
+
+    char utcBuf[32];
+    TEST_ASSERT_TRUE(date.dateTimeToStringUtc(dt, utcBuf, sizeof(utcBuf)));
+    TEST_ASSERT_EQUAL_STRING("2025-01-02 03:04:05", utcBuf);
+
+    std::string utcString = date.dateTimeToStringUtc(dt);
+    TEST_ASSERT_EQUAL_STRING("2025-01-02 03:04:05", utcString.c_str());
+
+    LocalDateTime local = date.toLocal(dt, "UTC0");
+    TEST_ASSERT_TRUE(local.ok);
+
+    char localBuf[32];
+    TEST_ASSERT_TRUE(date.localDateTimeToString(local, localBuf, sizeof(localBuf)));
+    TEST_ASSERT_EQUAL_STRING("2025-01-02 03:04:05", localBuf);
+
+    std::string localString = date.localDateTimeToString(local);
+    TEST_ASSERT_EQUAL_STRING("2025-01-02 03:04:05", localString.c_str());
+
+    char smallBuf[8];
+    TEST_ASSERT_FALSE(date.localDateTimeToString(local, smallBuf, sizeof(smallBuf)));
+
+    char nowBuf[32];
+    TEST_ASSERT_TRUE(date.nowUtcString(nowBuf, sizeof(nowBuf)));
+    std::string nowLocal = date.nowLocalString();
+    TEST_ASSERT_TRUE(!nowLocal.empty());
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -284,6 +313,7 @@ void setup() {
     RUN_TEST(test_ntp_callback_registration_supports_member_binding);
     RUN_TEST(test_ntp_sync_interval_setter_accepts_default);
     RUN_TEST(test_last_ntp_sync_defaults_to_empty);
+    RUN_TEST(test_string_helpers_for_datetime_and_local_datetime);
     UNITY_END();
 }
 

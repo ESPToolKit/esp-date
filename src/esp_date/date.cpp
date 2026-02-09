@@ -1,6 +1,7 @@
 #include "date.h"
 #include "utils.h"
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -761,6 +762,64 @@ bool ESPDate::formatWithPatternLocal(const DateTime& dt, const char* pattern, ch
   }
   size_t written = strftime(outBuffer, outSize, pattern, &t);
   return written > 0;
+}
+
+bool ESPDate::dateTimeToStringUtc(const DateTime& dt, char* outBuffer, size_t outSize, ESPDateFormat style) const {
+  return formatUtc(dt, style, outBuffer, outSize);
+}
+
+bool ESPDate::dateTimeToStringLocal(const DateTime& dt, char* outBuffer, size_t outSize, ESPDateFormat style) const {
+  return formatLocal(dt, style, outBuffer, outSize);
+}
+
+bool ESPDate::localDateTimeToString(const LocalDateTime& dt, char* outBuffer, size_t outSize) const {
+  if (!dt.ok || !outBuffer || outSize == 0) {
+    return false;
+  }
+  const int written =
+      std::snprintf(outBuffer, outSize, "%04d-%02d-%02d %02d:%02d:%02d", dt.year, dt.month, dt.day, dt.hour, dt.minute,
+                    dt.second);
+  return written > 0 && static_cast<size_t>(written) < outSize;
+}
+
+bool ESPDate::nowUtcString(char* outBuffer, size_t outSize, ESPDateFormat style) const {
+  return dateTimeToStringUtc(nowUtc(), outBuffer, outSize, style);
+}
+
+bool ESPDate::nowLocalString(char* outBuffer, size_t outSize, ESPDateFormat style) const {
+  return dateTimeToStringLocal(now(), outBuffer, outSize, style);
+}
+
+std::string ESPDate::dateTimeToStringUtc(const DateTime& dt, ESPDateFormat style) const {
+  char buffer[40];
+  if (!dateTimeToStringUtc(dt, buffer, sizeof(buffer), style)) {
+    return std::string();
+  }
+  return std::string(buffer);
+}
+
+std::string ESPDate::dateTimeToStringLocal(const DateTime& dt, ESPDateFormat style) const {
+  char buffer[48];
+  if (!dateTimeToStringLocal(dt, buffer, sizeof(buffer), style)) {
+    return std::string();
+  }
+  return std::string(buffer);
+}
+
+std::string ESPDate::localDateTimeToString(const LocalDateTime& dt) const {
+  char buffer[32];
+  if (!localDateTimeToString(dt, buffer, sizeof(buffer))) {
+    return std::string();
+  }
+  return std::string(buffer);
+}
+
+std::string ESPDate::nowUtcString(ESPDateFormat style) const {
+  return dateTimeToStringUtc(nowUtc(), style);
+}
+
+std::string ESPDate::nowLocalString(ESPDateFormat style) const {
+  return dateTimeToStringLocal(now(), style);
 }
 
 ESPDate::ParseResult ESPDate::parseIso8601Utc(const char* str) const {

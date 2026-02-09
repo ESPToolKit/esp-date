@@ -172,6 +172,25 @@ class ESPDate {
   bool formatWithPatternUtc(const DateTime& dt, const char* pattern, char* outBuffer, size_t outSize) const;
   bool formatWithPatternLocal(const DateTime& dt, const char* pattern, char* outBuffer, size_t outSize) const;
 
+  // String helpers (embedded-safe buffer first, then std::string convenience)
+  bool dateTimeToStringUtc(const DateTime& dt,
+                           char* outBuffer,
+                           size_t outSize,
+                           ESPDateFormat style = ESPDateFormat::DateTime) const;
+  bool dateTimeToStringLocal(const DateTime& dt,
+                             char* outBuffer,
+                             size_t outSize,
+                             ESPDateFormat style = ESPDateFormat::DateTime) const;
+  bool localDateTimeToString(const LocalDateTime& dt, char* outBuffer, size_t outSize) const;
+  bool nowUtcString(char* outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
+  bool nowLocalString(char* outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
+
+  std::string dateTimeToStringUtc(const DateTime& dt, ESPDateFormat style = ESPDateFormat::DateTime) const;
+  std::string dateTimeToStringLocal(const DateTime& dt, ESPDateFormat style = ESPDateFormat::DateTime) const;
+  std::string localDateTimeToString(const LocalDateTime& dt) const;
+  std::string nowUtcString(ESPDateFormat style = ESPDateFormat::DateTime) const;
+  std::string nowLocalString(ESPDateFormat style = ESPDateFormat::DateTime) const;
+
   struct ParseResult {
     bool ok;
     DateTime value;

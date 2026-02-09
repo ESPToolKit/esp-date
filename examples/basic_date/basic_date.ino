@@ -39,6 +39,13 @@ void setup() {
   printFormatted("Tomorrow (UTC): ", tomorrow);
   printFormatted("Last week (UTC): ", lastWeek);
 
+  char localNowBuffer[32];
+  if (date.nowLocalString(localNowBuffer, sizeof(localNowBuffer))) {
+    Serial.printf("Now (Local string): %s\n", localNowBuffer);
+  }
+  std::string utcNowString = date.nowUtcString();
+  Serial.printf("Now (UTC string): %s\n", utcNowString.c_str());
+
   int64_t deltaDays = date.differenceInDays(tomorrow, now);
   Serial.printf("Days between now and tomorrow: %lld\n", static_cast<long long>(deltaDays));
 

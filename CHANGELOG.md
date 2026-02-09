@@ -15,6 +15,7 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 - `syncNTP()` to immediately trigger a new SNTP sync using the configured NTP server.
 - `ntpSyncIntervalMs` config field plus `setNtpSyncIntervalMs(...)` runtime setter to override SNTP sync interval when runtime support is available.
 - Internal last-sync tracking plus `hasLastNtpSync()` / `lastNtpSync()` getters.
+- String formatting helpers for `DateTime`/`LocalDateTime` with buffer-based APIs plus `std::string` convenience wrappers (`nowUtcString`, `nowLocalString`, etc.).
 
 ### Changed
 - Replaced the `ESPDateConfig` constructor with an explicit `init(const ESPDateConfig&)` so configuration happens after the Arduino runtime is alive, avoiding early SNTP watchdog resets on some boards.
