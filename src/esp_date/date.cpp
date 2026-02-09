@@ -10,17 +10,21 @@
 #    include <esp_sntp.h>
 #    define ESPDATE_HAS_CONFIG_TZ_TIME 1
 #    define ESPDATE_HAS_SNTP_NOTIFICATION_CB 1
+#    define ESPDATE_HAS_SNTP_SYNC_INTERVAL 1
 #  elif __has_include(<esp_netif_sntp.h>)
 #    include <esp_netif_sntp.h>
 #    define ESPDATE_HAS_CONFIG_TZ_TIME 1
 #    define ESPDATE_HAS_SNTP_NOTIFICATION_CB 0
+#    define ESPDATE_HAS_SNTP_SYNC_INTERVAL 0
 #  else
 #    define ESPDATE_HAS_CONFIG_TZ_TIME 0
 #    define ESPDATE_HAS_SNTP_NOTIFICATION_CB 0
+#    define ESPDATE_HAS_SNTP_SYNC_INTERVAL 0
 #  endif
 #else
 #  define ESPDATE_HAS_CONFIG_TZ_TIME 0
 #  define ESPDATE_HAS_SNTP_NOTIFICATION_CB 0
+#  define ESPDATE_HAS_SNTP_SYNC_INTERVAL 0
 #endif
 
 #if defined(__SIZEOF_TIME_T__) && __SIZEOF_TIME_T__ < 8
@@ -106,6 +110,7 @@ void ESPDate::init(const ESPDateConfig& config) {
   hasLocation_ = true;
   timeZone_.clear();
   ntpServer_.clear();
+  ntpSyncIntervalMs_ = config.ntpSyncIntervalMs;
 
   const bool hasTz = config.timeZone && config.timeZone[0] != '\0';
   const bool hasNtp = config.ntpServer && config.ntpServer[0] != '\0';
@@ -142,6 +147,18 @@ void ESPDate::setNtpSyncCallback(const NtpSyncCallable& callback) {
 #endif
 }
 
+bool ESPDate::setNtpSyncIntervalMs(uint32_t intervalMs) {
+  ntpSyncIntervalMs_ = intervalMs;
+#if ESPDATE_HAS_SNTP_SYNC_INTERVAL
+  if (intervalMs > 0) {
+    sntp_set_sync_interval(intervalMs);
+  }
+  return true;
+#else
+  return intervalMs == 0;
+#endif
+}
+
 bool ESPDate::syncNTP() {
   return applyNtpConfig();
 }
@@ -157,6 +174,11 @@ bool ESPDate::applyNtpConfig() const {
   activeNtpSyncCallbackCallable_ = ntpSyncCallbackCallable_;
   const bool hasCallback = (ntpSyncCallback_ != nullptr) || static_cast<bool>(ntpSyncCallbackCallable_);
   sntp_set_time_sync_notification_cb(hasCallback ? &ESPDate::handleSntpSync : nullptr);
+#endif
+#if ESPDATE_HAS_SNTP_SYNC_INTERVAL
+  if (ntpSyncIntervalMs_ > 0) {
+    sntp_set_sync_interval(ntpSyncIntervalMs_);
+  }
 #endif
 
   const char* tz = timeZone_.empty() ? "UTC0" : timeZone_.c_str();

@@ -43,6 +43,7 @@ struct ESPDateConfig {
   float longitude = 0.0f;
   const char* timeZone = nullptr;  // POSIX TZ string, e.g. "CET-1CEST,M3.5.0/2,M10.5.0/3"
   const char* ntpServer = nullptr; // optional NTP server; used with timeZone to call configTzTime
+  uint32_t ntpSyncIntervalMs = 0;  // optional SNTP sync interval override; 0 keeps runtime default
 };
 
 struct SunCycleResult {
@@ -67,6 +68,9 @@ class ESPDate {
   void setNtpSyncCallback(NtpSyncCallback callback);
   // Accepts lambdas / std::bind / functors.
   void setNtpSyncCallback(const NtpSyncCallable& callback);
+  // Adjusts SNTP sync interval in milliseconds. Pass 0 to keep the runtime default.
+  // Returns false when the runtime does not expose interval control.
+  bool setNtpSyncIntervalMs(uint32_t intervalMs);
   // Triggers an immediate NTP sync with the configured server.
   // Returns false when no NTP server is configured or SNTP runtime support is unavailable.
   bool syncNTP();
@@ -233,6 +237,7 @@ class ESPDate {
   float longitude_ = 0.0f;
   std::string timeZone_;
   std::string ntpServer_;
+  uint32_t ntpSyncIntervalMs_ = 0;
   NtpSyncCallback ntpSyncCallback_ = nullptr;
   NtpSyncCallable ntpSyncCallbackCallable_;
   static NtpSyncCallback activeNtpSyncCallback_;

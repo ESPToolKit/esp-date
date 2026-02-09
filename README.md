@@ -18,7 +18,7 @@ ESPDate is a tiny C++17 helper for ESP32 projects that makes working with dates 
 - **DST detection**: `isDstActive` reports whether daylight saving time applies using the stored TZ, an explicit POSIX TZ string, or the current system TZ.
 - **Moon phase**: `moonPhase` returns the current lunar phase angle and illumination fraction for any moment.
 - **Optional NTP bootstrap**: call `init` with `ESPDateConfig` containing both `timeZone` and `ntpServer` to set TZ and start SNTP after Arduino/WiFi is ready.
-- **NTP sync callback + manual re-sync**: register `setNtpSyncCallback(...)` with a function, lambda, or `std::bind`, and call `syncNTP()` anytime to trigger an immediate refresh with the configured server.
+- **NTP sync callback + manual re-sync**: register `setNtpSyncCallback(...)` with a function, lambda, or `std::bind`, call `syncNTP()` anytime to trigger an immediate refresh, and optionally override SNTP interval via `ntpSyncIntervalMs` / `setNtpSyncIntervalMs(...)`.
 - **Local breakdown helpers**: `nowLocal()` / `toLocal()` surface the broken-out local time (with UTC offset) for quick DST/debug checks; feed sunrise/sunset results into `toLocal` to read them in local time.
 - **Friendly month names**: `monthName(int|DateTime)` returns `"January"` … `"December"` for quick labels.
 - **Class-based API**: everything hangs off a single `ESPDate` instance; no global namespace clutter.
@@ -29,6 +29,8 @@ ESPDate does not configure SNTP by default. Call `init` with a POSIX TZ string p
 SNTP exposes a system-level sync hook, so the last `setNtpSyncCallback(...)` registration is the active callback.
 Example member-method binding style:
 `date.setNtpSyncCallback(std::bind(&App::handleNTPSync, this, std::placeholders::_1));`
+Set interval from config or at runtime:
+`date.setNtpSyncIntervalMs(15 * 60 * 1000); // 15 minutes`
 
 ## Getting Started
 Install one of two ways:
@@ -52,12 +54,13 @@ void setup() {
     Serial.begin(115200);
 
     // Configure TZ + NTP after WiFi is connected if you want ESPDate to call configTzTime
-    date.init(ESPDateConfig{0.0f, 0.0f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org"});
-    solar.init(ESPDateConfig{47.4979f, 19.0402f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org"});
+    date.init(ESPDateConfig{0.0f, 0.0f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org", 15 * 60 * 1000});
+    solar.init(ESPDateConfig{47.4979f, 19.0402f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org", 15 * 60 * 1000});
 
     date.setNtpSyncCallback([](const DateTime& syncedAtUtc) {
         Serial.printf("NTP synced at %lld\n", static_cast<long long>(syncedAtUtc.epochSeconds));
     });
+    date.setNtpSyncIntervalMs(10 * 60 * 1000); // optional runtime update: 10 minutes
     date.syncNTP(); // optional: force an immediate re-sync
 
     // Make sure system time is set up (SNTP / manual) before calling date.now()
@@ -144,6 +147,7 @@ public:
     void init(const ESPDateConfig &config);
     void setNtpSyncCallback(NtpSyncCallback callback);
     void setNtpSyncCallback(const NtpSyncCallable& callback);
+    bool setNtpSyncIntervalMs(uint32_t intervalMs);
     bool syncNTP();
 
     // Time sources

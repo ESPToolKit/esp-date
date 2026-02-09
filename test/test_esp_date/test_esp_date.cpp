@@ -248,6 +248,10 @@ static void test_ntp_callback_registration_supports_member_binding() {
     TEST_ASSERT_EQUAL(0, observer.callCount);  // registration-only API coverage
 }
 
+static void test_ntp_sync_interval_setter_accepts_default() {
+    TEST_ASSERT_TRUE(date.setNtpSyncIntervalMs(0));
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -272,6 +276,7 @@ void setup() {
     RUN_TEST(test_moon_phase_full_and_new_moon);
     RUN_TEST(test_sync_ntp_requires_server_config);
     RUN_TEST(test_ntp_callback_registration_supports_member_binding);
+    RUN_TEST(test_ntp_sync_interval_setter_accepts_default);
     UNITY_END();
 }
 
