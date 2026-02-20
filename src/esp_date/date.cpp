@@ -191,6 +191,7 @@ ESPDate::~ESPDate() {
 void ESPDate::deinit() {
   ntpSyncCallback_ = nullptr;
   ntpSyncCallbackCallable_ = NtpSyncCallable{};
+  usePSRAMBuffers_ = false;
   hasLastNtpSync_ = false;
   lastNtpSync_ = DateTime{};
 
@@ -208,8 +209,9 @@ void ESPDate::init(const ESPDateConfig& config) {
   latitude_ = config.latitude;
   longitude_ = config.longitude;
   hasLocation_ = true;
-  timeZone_.clear();
-  ntpServer_.clear();
+  usePSRAMBuffers_ = config.usePSRAMBuffers;
+  timeZone_ = DateString(DateAllocator<char>(usePSRAMBuffers_));
+  ntpServer_ = DateString(DateAllocator<char>(usePSRAMBuffers_));
   ntpSyncIntervalMs_ = config.ntpSyncIntervalMs;
   hasLastNtpSync_ = false;
   lastNtpSync_ = DateTime{};
@@ -329,7 +331,7 @@ LocalDateTime ESPDate::toLocal(const DateTime& dt, const char* timeZone) const {
     tz = timeZone_.empty() ? nullptr : timeZone_.c_str();
   }
 
-  Utils::ScopedTz scoped(tz);
+  Utils::ScopedTz scoped(tz, usePSRAMBuffers_);
   time_t raw = static_cast<time_t>(dt.epochSeconds);
   tm local{};
   if (localtime_r(&raw, &local) == nullptr) {
@@ -410,7 +412,7 @@ bool ESPDate::isDstActive(const DateTime& dt, const char* timeZone) const {
       tz = nullptr;
     }
   }
-  return Utils::isDstActiveFor(dt, tz);
+  return Utils::isDstActiveFor(dt, tz, usePSRAMBuffers_);
 }
 
 DateTime ESPDate::addSeconds(const DateTime& dt, int64_t seconds) const {

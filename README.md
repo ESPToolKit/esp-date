@@ -21,6 +21,7 @@ ESPDate is a tiny C++17 helper for ESP32 projects that makes working with dates 
 - **Moon phase**: `moonPhase` returns the current lunar phase angle and illumination fraction for any moment.
 - **Optional NTP bootstrap**: call `init` with `ESPDateConfig` containing both `timeZone` and `ntpServer` to set TZ and start SNTP after Arduino/WiFi is ready.
 - **NTP sync callback + manual re-sync**: register `setNtpSyncCallback(...)` with a function, lambda, or `std::bind`, call `syncNTP()` anytime to trigger an immediate refresh, and optionally override SNTP interval via `ntpSyncIntervalMs` / `setNtpSyncIntervalMs(...)`.
+- **Optional PSRAM-backed config/state buffers**: `ESPDateConfig::usePSRAMBuffers` routes ESPDate-owned text state (timezone/NTP/scoped TZ restore buffers) through `ESPBufferManager` with automatic fallback.
 - **Explicit lifecycle cleanup**: `deinit()` unregisters ESPDate-owned SNTP callback hooks; the destructor calls it automatically.
 - **Last sync tracking**: `hasLastNtpSync()` / `lastNtpSync()` expose the latest SNTP sync timestamp kept inside `ESPDate`.
 - **Last sync string helpers**: `lastNtpSyncStringLocal/Utc` provide direct formatting helpers for `lastNtpSync`.
@@ -60,8 +61,13 @@ void setup() {
     Serial.begin(115200);
 
     // Configure TZ + NTP after WiFi is connected if you want ESPDate to call configTzTime
-    date.init(ESPDateConfig{0.0f, 0.0f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org", 15 * 60 * 1000});
-    solar.init(ESPDateConfig{47.4979f, 19.0402f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org", 15 * 60 * 1000});
+    ESPDateConfig dateCfg{0.0f, 0.0f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org", 15 * 60 * 1000};
+    dateCfg.usePSRAMBuffers = true; // optional: best effort, falls back automatically on non-PSRAM boards
+    date.init(dateCfg);
+
+    ESPDateConfig solarCfg{47.4979f, 19.0402f, "CET-1CEST,M3.5.0/2,M10.5.0/3", "pool.ntp.org", 15 * 60 * 1000};
+    solarCfg.usePSRAMBuffers = true;
+    solar.init(solarCfg);
 
     date.setNtpSyncCallback([](const DateTime& syncedAtUtc) {
         Serial.printf("NTP synced at %lld\n", static_cast<long long>(syncedAtUtc.epochSeconds));
@@ -451,7 +457,8 @@ if (rise.ok && set.ok) {
 - `differenceInDays` is purely `seconds / 86400` truncated toward zero, not a calendar-boundary delta.
 - Leap seconds are treated like 60th seconds in parsing; they are not modeled beyond that.
 - `isSameDay` compares the UTC calendar day. Use `startOfDayLocal` / `endOfDayLocal` if you need local-day comparisons.
-- The library avoids dynamic allocations and exceptions; formatting returns `false` if buffers are too small or time conversion fails.
+- Buffer-first formatting APIs avoid extra dynamic formatting allocations and return `false` when buffers are too small or conversion fails.
+- `usePSRAMBuffers` affects ESPDate-owned text buffers only; `std::string` convenience return values and callback captures may still allocate through toolchain/STL defaults.
 - ESP32 toolchains typically ship a 64-bit `time_t`; on 32-bit `time_t` toolchains dates beyond 2038 may overflow (a compile-time warning is emitted).
 - `differenceInDays(a, b)` is defined as `floor((a - b) / 86400)` on UTC seconds, not calendar boundaries.
 - `SunCycleResult.ok` is `false` when there is no sunrise/sunset for the given day/coordinates (e.g., polar night/day).

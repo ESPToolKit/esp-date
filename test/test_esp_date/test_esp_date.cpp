@@ -310,6 +310,19 @@ static void test_string_helpers_for_datetime_and_local_datetime() {
     TEST_ASSERT_TRUE(lastYear.localString(lastYearLocalBuf, sizeof(lastYearLocalBuf)));
 }
 
+static void test_psram_buffer_policy_toggle_is_safe() {
+    ESPDate psramDate;
+    ESPDateConfig cfg{};
+    cfg.timeZone = "UTC0";
+    cfg.usePSRAMBuffers = true;
+    psramDate.init(cfg);
+
+    DateTime dt = psramDate.fromUtc(2025, 1, 2, 3, 4, 5);
+    char buf[32];
+    TEST_ASSERT_TRUE(psramDate.formatUtc(dt, ESPDateFormat::DateTime, buf, sizeof(buf)));
+    TEST_ASSERT_EQUAL_STRING("2025-01-02 03:04:05", buf);
+}
+
 void setUp() {}
 void tearDown() {}
 
@@ -337,6 +350,7 @@ void setup() {
     RUN_TEST(test_ntp_sync_interval_setter_accepts_default);
     RUN_TEST(test_last_ntp_sync_defaults_to_empty);
     RUN_TEST(test_string_helpers_for_datetime_and_local_datetime);
+    RUN_TEST(test_psram_buffer_policy_toggle_is_safe);
     UNITY_END();
 }
 

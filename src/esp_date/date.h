@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include "date_allocator.h"
 #include <functional>
 #include <stdint.h>
 #include <time.h>
@@ -55,6 +56,7 @@ struct ESPDateConfig {
   const char* timeZone = nullptr;  // POSIX TZ string, e.g. "CET-1CEST,M3.5.0/2,M10.5.0/3"
   const char* ntpServer = nullptr; // optional NTP server; used with timeZone to call configTzTime
   uint32_t ntpSyncIntervalMs = 0;  // optional SNTP sync interval override; 0 keeps runtime default
+  bool usePSRAMBuffers = false;    // prefer PSRAM for ESPDate-owned config/state text buffers
 };
 
 struct SunCycleResult {
@@ -284,9 +286,10 @@ class ESPDate {
 
   float latitude_ = 0.0f;
   float longitude_ = 0.0f;
-  std::string timeZone_;
-  std::string ntpServer_;
+  DateString timeZone_;
+  DateString ntpServer_;
   uint32_t ntpSyncIntervalMs_ = 0;
+  bool usePSRAMBuffers_ = false;
   DateTime lastNtpSync_{};
   bool hasLastNtpSync_ = false;
   NtpSyncCallback ntpSyncCallback_ = nullptr;

@@ -34,8 +34,8 @@ LocalDateResult deriveLocalDateWithOffset(const DateTime& dt, int offsetSeconds)
   return LocalDateResult{t.tm_year + 1900, t.tm_mon + 1, t.tm_mday, true};
 }
 
-OffsetDateResult computeOffsetAndDate(const DateTime& dt, const char* timeZone) {
-  Utils::ScopedTz scoped(timeZone);
+OffsetDateResult computeOffsetAndDate(const DateTime& dt, const char* timeZone, bool usePSRAMBuffers) {
+  Utils::ScopedTz scoped(timeZone, usePSRAMBuffers);
   time_t raw = static_cast<time_t>(dt.epochSeconds);
   tm local{};
   if (localtime_r(&raw, &local) == nullptr) {
@@ -275,7 +275,7 @@ SunCycleResult ESPDate::sunrise(float latitude, float longitude, const char* tim
   if (!validCoordinates(latitude, longitude)) {
     return SunCycleResult{false, DateTime{}};
   }
-  OffsetDateResult data = computeOffsetAndDate(day, timeZone);
+  OffsetDateResult data = computeOffsetAndDate(day, timeZone, usePSRAMBuffers_);
   if (!data.date.ok) {
     return SunCycleResult{false, DateTime{}};
   }
@@ -287,7 +287,7 @@ SunCycleResult ESPDate::sunset(float latitude, float longitude, const char* time
   if (!validCoordinates(latitude, longitude)) {
     return SunCycleResult{false, DateTime{}};
   }
-  OffsetDateResult data = computeOffsetAndDate(day, timeZone);
+  OffsetDateResult data = computeOffsetAndDate(day, timeZone, usePSRAMBuffers_);
   if (!data.date.ok) {
     return SunCycleResult{false, DateTime{}};
   }
@@ -303,7 +303,7 @@ SunCycleResult ESPDate::sunriseFromConfig(const DateTime& day) const {
     return SunCycleResult{false, DateTime{}};
   }
   const char* tz = timeZone_.empty() ? nullptr : timeZone_.c_str();
-  OffsetDateResult data = computeOffsetAndDate(day, tz);
+  OffsetDateResult data = computeOffsetAndDate(day, tz, usePSRAMBuffers_);
   if (!data.date.ok) {
     return SunCycleResult{false, DateTime{}};
   }
@@ -319,7 +319,7 @@ SunCycleResult ESPDate::sunsetFromConfig(const DateTime& day) const {
     return SunCycleResult{false, DateTime{}};
   }
   const char* tz = timeZone_.empty() ? nullptr : timeZone_.c_str();
-  OffsetDateResult data = computeOffsetAndDate(day, tz);
+  OffsetDateResult data = computeOffsetAndDate(day, tz, usePSRAMBuffers_);
   if (!data.date.ok) {
     return SunCycleResult{false, DateTime{}};
   }

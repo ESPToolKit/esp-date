@@ -6,6 +6,7 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 
 ## [Unreleased]
 ### Added
+- `ESPDateConfig::usePSRAMBuffers` to prefer PSRAM-backed allocation for ESPDate-owned text/state buffers (timezone, NTP server, scoped TZ restore state) through `ESPBufferManager`, with automatic fallback to normal heap.
 - `isDstActive` helper to detect whether daylight saving time is in effect using a provided POSIX TZ string, the stored TZ config, or the current system TZ.
 - Moon phase calculation helpers returning phase angle and illumination for any `DateTime` (or `now()`).
 - Local time helpers: `nowLocal()` plus `toLocal(DateTime[, tz])` expose broken-out local components and UTC offset for debugging sunrise/sunset and DST handling.

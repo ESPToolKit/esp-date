@@ -26,7 +26,12 @@
   "platforms": [
     "espressif32"
   ],
-  "dependencies": [],
+  "dependencies": [
+    {
+      "name": "ESPBufferManager",
+      "version": "https://github.com/ESPToolKit/esp-buffer-manager.git"
+    }
+  ],
   "headers": [
     "ESPDate.h"
   ],

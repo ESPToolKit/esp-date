@@ -1,11 +1,11 @@
 #pragma once
 
+#include "date_allocator.h"
 #include "date.h"
 
 #include <cstdlib>
 #include <ctime>
 #include <limits>
-#include <string>
 
 class ESPDateUtils {
  public:
@@ -15,7 +15,7 @@ class ESPDateUtils {
 
   class ScopedTz {
    public:
-    explicit ScopedTz(const char* tz) {
+    explicit ScopedTz(const char* tz, bool usePSRAMBuffers = false) : previous_(DateAllocator<char>(usePSRAMBuffers)) {
       if (!tz) {
         return;
       }
@@ -61,10 +61,10 @@ class ESPDateUtils {
 #endif
     }
 
-   private:
+  private:
     bool active_ = false;
     bool hadPrevious_ = false;
-    std::string previous_;
+    DateString previous_;
   };
 
   static bool toUtcTm(const DateTime& dt, tm& out) {
@@ -134,8 +134,8 @@ class ESPDateUtils {
     return day;
   }
 
-  static bool isDstActiveFor(const DateTime& dt, const char* timeZone) {
-    ScopedTz scoped(timeZone);
+  static bool isDstActiveFor(const DateTime& dt, const char* timeZone, bool usePSRAMBuffers = false) {
+    ScopedTz scoped(timeZone, usePSRAMBuffers);
     tm local{};
     if (!toLocalTm(dt, local)) {
       return false;
