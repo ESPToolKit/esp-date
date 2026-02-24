@@ -22,7 +22,8 @@ ESPDate is a tiny C++17 helper for ESP32 projects that makes working with dates 
 - **Optional NTP bootstrap**: call `init` with `ESPDateConfig` containing both `timeZone` and `ntpServer` to set TZ and start SNTP after Arduino/WiFi is ready.
 - **NTP sync callback + manual re-sync**: register `setNtpSyncCallback(...)` with a function, lambda, or `std::bind`, call `syncNTP()` anytime to trigger an immediate refresh, and optionally override SNTP interval via `ntpSyncIntervalMs` / `setNtpSyncIntervalMs(...)`.
 - **Optional PSRAM-backed config/state buffers**: `ESPDateConfig::usePSRAMBuffers` routes ESPDate-owned text state (timezone/NTP/scoped TZ restore buffers) through `ESPBufferManager` with automatic fallback.
-- **Explicit lifecycle cleanup**: `deinit()` unregisters ESPDate-owned SNTP callback hooks; the destructor calls it automatically.
+- **Explicit lifecycle cleanup**: `deinit()` unregisters ESPDate-owned SNTP callback hooks, clears runtime config buffers, and is safe to call repeatedly; the destructor calls it automatically.
+- **Init-state introspection**: `isInitialized()` reports whether `init(...)` has been called without a matching `deinit()`.
 - **Last sync tracking**: `hasLastNtpSync()` / `lastNtpSync()` expose the latest SNTP sync timestamp kept inside `ESPDate`.
 - **Last sync string helpers**: `lastNtpSyncStringLocal/Utc` provide direct formatting helpers for `lastNtpSync`.
 - **Local breakdown helpers**: `nowLocal()` / `toLocal()` surface the broken-out local time (with UTC offset) for quick DST/debug checks; feed sunrise/sunset results into `toLocal` to read them in local time.
@@ -118,6 +119,20 @@ void setup() {
     std::string utcString = date.nowUtcString();
     Serial.printf("UTC now (string): %s\n", utcString.c_str());
 }
+
+void loop() {
+    // Example teardown path (mode switch / OTA / feature shutdown).
+    static bool released = false;
+    if (!released && millis() > 60000UL) {
+        if (date.isInitialized()) {
+            date.deinit();
+        }
+        if (solar.isInitialized()) {
+            solar.deinit();
+        }
+        released = true;
+    }
+}
 ```
 
 ### Working With Local Time (UI) vs UTC (storage/logic)
@@ -186,6 +201,7 @@ public:
     ~ESPDate();
     void init(const ESPDateConfig &config);
     void deinit();
+    bool isInitialized() const;
     void setNtpSyncCallback(NtpSyncCallback callback);
     template <typename Callable>
     void setNtpSyncCallback(Callable&& callback); // capturing lambda/std::bind/functor

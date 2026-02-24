@@ -11,6 +11,42 @@ ESPDate date;
 static const float kBudapestLat = 47.4979f;
 static const float kBudapestLon = 19.0402f;
 
+static void test_deinit_is_safe_before_init() {
+    ESPDate monitor;
+    TEST_ASSERT_FALSE(monitor.isInitialized());
+
+    monitor.deinit();
+    TEST_ASSERT_FALSE(monitor.isInitialized());
+}
+
+static void test_deinit_is_idempotent() {
+    ESPDate monitor;
+    monitor.init(ESPDateConfig{0.0f, 0.0f, "UTC0", nullptr});
+    TEST_ASSERT_TRUE(monitor.isInitialized());
+
+    monitor.deinit();
+    TEST_ASSERT_FALSE(monitor.isInitialized());
+
+    monitor.deinit();
+    TEST_ASSERT_FALSE(monitor.isInitialized());
+}
+
+static void test_reinit_after_deinit() {
+    ESPDate monitor;
+    monitor.init(ESPDateConfig{0.0f, 0.0f, "UTC0", nullptr});
+    TEST_ASSERT_TRUE(monitor.isInitialized());
+
+    monitor.deinit();
+    TEST_ASSERT_FALSE(monitor.isInitialized());
+
+    monitor.init(ESPDateConfig{kBudapestLat, kBudapestLon, "CET-1CEST,M3.5.0/2,M10.5.0/3", nullptr});
+    TEST_ASSERT_TRUE(monitor.isInitialized());
+    TEST_ASSERT_TRUE(monitor.sunrise(monitor.fromUtc(2024, 6, 1)).ok);
+
+    monitor.deinit();
+    TEST_ASSERT_FALSE(monitor.isInitialized());
+}
+
 static void test_add_days_and_differences() {
     DateTime base = date.fromUnixSeconds(1704067200);  // 2024-01-01T00:00:00Z
     DateTime plus = date.addDays(base, 1);
@@ -331,6 +367,9 @@ void setup() {
     tzset();
     delay(2000);
     UNITY_BEGIN();
+    RUN_TEST(test_deinit_is_safe_before_init);
+    RUN_TEST(test_deinit_is_idempotent);
+    RUN_TEST(test_reinit_after_deinit);
     RUN_TEST(test_add_days_and_differences);
     RUN_TEST(test_add_months_clamps_day_in_leap_year);
     RUN_TEST(test_start_and_end_of_day_utc);

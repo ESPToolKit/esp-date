@@ -79,6 +79,9 @@ class ESPDate {
   ~ESPDate();
   void init(const ESPDateConfig& config);
   void deinit();
+  bool isInitialized() const {
+    return initialized_;
+  }
   // Optional SNTP sync notification. Pass nullptr to clear.
   void setNtpSyncCallback(NtpSyncCallback callback);
   // Accepts capturing lambdas / std::bind / functors.
@@ -298,4 +301,5 @@ class ESPDate {
   static NtpSyncCallable activeNtpSyncCallbackCallable_;
   static ESPDate* activeNtpSyncOwner_;
   bool hasLocation_ = false;
+  bool initialized_ = false;
 };
