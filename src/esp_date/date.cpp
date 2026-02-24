@@ -191,9 +191,17 @@ ESPDate::~ESPDate() {
 void ESPDate::deinit() {
   ntpSyncCallback_ = nullptr;
   ntpSyncCallbackCallable_ = NtpSyncCallable{};
-  usePSRAMBuffers_ = false;
   hasLastNtpSync_ = false;
   lastNtpSync_ = DateTime{};
+  hasLocation_ = false;
+  latitude_ = 0.0f;
+  longitude_ = 0.0f;
+  ntpSyncIntervalMs_ = 0;
+  const bool usePSRAM = usePSRAMBuffers_;
+  timeZone_ = DateString(DateAllocator<char>(usePSRAM));
+  ntpServer_ = DateString(DateAllocator<char>(usePSRAM));
+  usePSRAMBuffers_ = false;
+  initialized_ = false;
 
   if (activeNtpSyncOwner_ == this) {
     activeNtpSyncOwner_ = nullptr;
@@ -229,6 +237,7 @@ void ESPDate::init(const ESPDateConfig& config) {
     setenv("TZ", timeZone_.c_str(), 1);
     tzset();
   }
+  initialized_ = true;
 }
 
 void ESPDate::setNtpSyncCallback(NtpSyncCallback callback) {

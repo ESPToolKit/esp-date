@@ -3,6 +3,7 @@
 #include <functional>
 
 ESPDate date;
+bool releasedDateResources = false;
 
 class SyncObserver {
  public:
@@ -95,5 +96,10 @@ void setup() {
 }
 
 void loop() {
-  // Intentionally empty.
+  // Demonstrate explicit teardown in long-running sketches.
+  if (!releasedDateResources && millis() > 60000UL && date.isInitialized()) {
+    date.deinit();
+    releasedDateResources = true;
+    Serial.println("ESPDate deinitialized.");
+  }
 }
