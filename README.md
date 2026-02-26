@@ -107,9 +107,10 @@ void setup() {
     LocalDateTime local = date.nowLocal();  // quick DST/local sanity check
     if (local.ok) {
         Serial.printf("Local now: %04d-%02d-%02d %02d:%02d:%02d (UTC offset %+d min)\n",
-                      local.year, local.month, local.day,
-                      local.hour, local.minute, local.second,
-                      local.offsetMinutes);
+            local.year, local.month, local.day,
+            local.hour, local.minute, local.second,
+            local.offsetMinutes
+        );
     }
 
     char localBuf[32];
@@ -330,9 +331,10 @@ int64_t min = date.differenceInMinutes(now, yesterday);
 int64_t days = date.differenceInDays(now, yesterday);
 
 Serial.printf("Δ: %lld s, %lld min, %lld days\n",
-              static_cast<long long>(sec),
-              static_cast<long long>(min),
-              static_cast<long long>(days));
+    static_cast<long long>(sec),
+    static_cast<long long>(min),
+    static_cast<long long>(days)
+);
 ```
 
 Start/end of day (local):
@@ -358,7 +360,8 @@ Calculating the next month’s billing date:
 DateTime now = date.now();
 DateTime thisBilling = date.setTimeOfDayLocal(
     date.startOfMonthLocal(now),
-    3, 0, 0); // 03:00 local on the 1st
+    3, 0, 0 // 03:00 local on the 1st
+); 
 
 DateTime nextBilling = date.addMonths(thisBilling, 1);
 ```
@@ -410,8 +413,10 @@ bool isNowDay = solar.isDay();                        // uses stored config
 bool isGivenDay = solar.isDay(date.fromUtc(2024, 6, 1));
 bool isWithOffsets = solar.isDay(-900, -1800);        // 15 min before sunrise, 30 min before sunset
 bool dstNow = solar.isDstActive();                    // stored TZ or current system TZ
-bool dstForDate = date.isDstActive(date.fromUtc(2024, 10, 1, 12, 0, 0),
-                                   "EST5EDT,M3.2.0/2,M11.1.0/2");
+bool dstForDate = date.isDstActive(
+    date.fromUtc(2024, 10, 1, 12, 0, 0),
+    "EST5EDT,M3.2.0/2,M11.1.0/2"
+);
 
 // Moon phase (angle in degrees, illumination 0..1)
 MoonPhaseResult phase = date.moonPhase();
