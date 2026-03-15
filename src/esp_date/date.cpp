@@ -32,6 +32,13 @@
 #warning "ESPDate detected 32-bit time_t; dates beyond 2038 may overflow."
 #endif
 
+#ifdef ESPDATE_FORCE_32BIT_EPOCH
+#warning "ESPDate ESPDATE_FORCE_32BIT_EPOCH enabled; dates beyond 2038 may overflow."
+// some implementations of time_t do not clear the upper bits when time_t is 64-bit and
+// leave the upper bits garbage, which causes issues when the value is cast back to int64_t.
+// NOTE: enableing this fix reintroduces the year 2038 problem.
+#endif
+
 using Utils = ESPDateUtils;
 
 namespace {
@@ -69,6 +76,11 @@ void ESPDate::handleSntpSync(struct timeval *tv) {
 	if (tv) {
 		syncedEpoch = static_cast<int64_t>(tv->tv_sec);
 	}
+
+#ifdef ESPDATE_FORCE_32BIT_EPOCH
+	syncedEpoch &= std::numeric_limits<uint32_t>::max();
+#endif
+
 	const DateTime syncedAtUtc{syncedEpoch};
 	if (activeNtpSyncOwner_) {
 		activeNtpSyncOwner_->lastNtpSync_ = syncedAtUtc;
@@ -354,7 +366,13 @@ bool ESPDate::applyNtpConfig() const {
 }
 
 DateTime ESPDate::now() const {
-	return DateTime{static_cast<int64_t>(time(nullptr))};
+	auto epoch = static_cast<int64_t>(time(nullptr));
+
+#ifdef ESPDATE_FORCE_32BIT_EPOCH
+	epoch &= std::numeric_limits<uint32_t>::max();
+#endif
+
+	return DateTime{epoch};
 }
 
 DateTime ESPDate::nowUtc() const {
