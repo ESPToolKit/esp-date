@@ -2,6 +2,7 @@
 #include "utils.h"
 
 #include <cmath>
+#include <limits>
 
 using Utils = ESPDateUtils;
 
@@ -48,6 +49,39 @@ computeOffsetAndDate(const DateTime &dt, const char *timeZone, bool usePSRAMBuff
 	result.offsetMinutes = static_cast<double>(offsetSeconds) / 60.0;
 	result.date = LocalDateResult{local.tm_year + 1900, local.tm_mon + 1, local.tm_mday, true};
 	return result;
+}
+
+DateTime buildLocalEventUtc(
+    const LocalDateResult &date,
+    int minutes,
+    const char *timeZone,
+    bool usePSRAMBuffers,
+    const ESPDate &dateHelper
+) {
+	if (!date.ok || minutes < 0 || minutes >= 1440) {
+		return DateTime{};
+	}
+	Utils::ScopedTz scoped(timeZone, usePSRAMBuffers);
+	const int hour = minutes / 60;
+	const int minute = minutes % 60;
+	return dateHelper.fromLocal(date.year, date.month, date.day, hour, minute, 0);
+}
+
+double offsetMinutesForLocalClock(
+    const LocalDateResult &date,
+    int hour,
+    int minute,
+    const char *timeZone,
+    bool usePSRAMBuffers,
+    const ESPDate &dateHelper
+) {
+	Utils::ScopedTz scoped(timeZone, usePSRAMBuffers);
+	DateTime local = dateHelper.fromLocal(date.year, date.month, date.day, hour, minute, 0);
+	LocalDateTime resolved = dateHelper.toLocal(local, timeZone);
+	if (!resolved.ok) {
+		return std::numeric_limits<double>::quiet_NaN();
+	}
+	return static_cast<double>(resolved.offsetMinutes);
 }
 
 constexpr double kPi = 3.14159265358979323846;
@@ -217,6 +251,75 @@ SunCycleResult buildSunCycleResult(
 	);
 	return result;
 }
+
+SunCycleResult buildTimeZoneAwareSunCycleResult(
+    bool isRise,
+    const LocalDateResult &date,
+    double latitude,
+    double longitude,
+    const char *timeZone,
+    bool usePSRAMBuffers,
+    const ESPDate &dateHelper
+) {
+	SunCycleResult result{false, DateTime{}};
+	if (!date.ok) {
+		return result;
+	}
+
+	double offsetMinutes =
+	    offsetMinutesForLocalClock(date, 12, 0, timeZone, usePSRAMBuffers, dateHelper);
+	if (!std::isfinite(offsetMinutes)) {
+		return result;
+	}
+
+	int previousMinutes = -1;
+	for (int iteration = 0; iteration < 3; ++iteration) {
+		const int minutes = sunriseSetLocalMinutes(
+		    isRise,
+		    date.year,
+		    date.month,
+		    date.day,
+		    latitude,
+		    longitude,
+		    offsetMinutes
+		);
+		if (minutes < 0 || minutes >= 1440) {
+			return result;
+		}
+
+		DateTime eventUtc =
+		    buildLocalEventUtc(date, minutes, timeZone, usePSRAMBuffers, dateHelper);
+		LocalDateTime resolved = dateHelper.toLocal(eventUtc, timeZone);
+		if (!resolved.ok) {
+			return result;
+		}
+		if (resolved.offsetMinutes == static_cast<int>(std::llround(offsetMinutes)) ||
+		    minutes == previousMinutes) {
+			result.ok = true;
+			result.value = eventUtc;
+			return result;
+		}
+
+		offsetMinutes = static_cast<double>(resolved.offsetMinutes);
+		previousMinutes = minutes;
+	}
+
+	const int minutes = sunriseSetLocalMinutes(
+	    isRise,
+	    date.year,
+	    date.month,
+	    date.day,
+	    latitude,
+	    longitude,
+	    offsetMinutes
+	);
+	if (minutes < 0 || minutes >= 1440) {
+		return result;
+	}
+	result.ok = true;
+	result.value = buildLocalEventUtc(date, minutes, timeZone, usePSRAMBuffers, dateHelper);
+	return result;
+}
 } // namespace
 
 SunCycleResult ESPDate::sunrise() const {
@@ -312,16 +415,15 @@ ESPDate::sunrise(float latitude, float longitude, const char *timeZone, const Da
 	if (!data.date.ok) {
 		return SunCycleResult{false, DateTime{}};
 	}
-	const int minutes = sunriseSetLocalMinutes(
+	return buildTimeZoneAwareSunCycleResult(
 	    true,
-	    data.date.year,
-	    data.date.month,
-	    data.date.day,
+	    data.date,
 	    latitude,
 	    longitude,
-	    data.offsetMinutes
+	    timeZone,
+	    usePSRAMBuffers_,
+	    *this
 	);
-	return buildSunCycleResult(minutes, data.offsetMinutes, data.date, *this);
 }
 
 SunCycleResult
@@ -333,16 +435,15 @@ ESPDate::sunset(float latitude, float longitude, const char *timeZone, const Dat
 	if (!data.date.ok) {
 		return SunCycleResult{false, DateTime{}};
 	}
-	const int minutes = sunriseSetLocalMinutes(
+	return buildTimeZoneAwareSunCycleResult(
 	    false,
-	    data.date.year,
-	    data.date.month,
-	    data.date.day,
+	    data.date,
 	    latitude,
 	    longitude,
-	    data.offsetMinutes
+	    timeZone,
+	    usePSRAMBuffers_,
+	    *this
 	);
-	return buildSunCycleResult(minutes, data.offsetMinutes, data.date, *this);
 }
 
 SunCycleResult ESPDate::sunriseFromConfig(const DateTime &day) const {
@@ -357,16 +458,15 @@ SunCycleResult ESPDate::sunriseFromConfig(const DateTime &day) const {
 	if (!data.date.ok) {
 		return SunCycleResult{false, DateTime{}};
 	}
-	const int minutes = sunriseSetLocalMinutes(
+	return buildTimeZoneAwareSunCycleResult(
 	    true,
-	    data.date.year,
-	    data.date.month,
-	    data.date.day,
+	    data.date,
 	    latitude_,
 	    longitude_,
-	    data.offsetMinutes
+	    tz,
+	    usePSRAMBuffers_,
+	    *this
 	);
-	return buildSunCycleResult(minutes, data.offsetMinutes, data.date, *this);
 }
 
 SunCycleResult ESPDate::sunsetFromConfig(const DateTime &day) const {
@@ -381,16 +481,15 @@ SunCycleResult ESPDate::sunsetFromConfig(const DateTime &day) const {
 	if (!data.date.ok) {
 		return SunCycleResult{false, DateTime{}};
 	}
-	const int minutes = sunriseSetLocalMinutes(
+	return buildTimeZoneAwareSunCycleResult(
 	    false,
-	    data.date.year,
-	    data.date.month,
-	    data.date.day,
+	    data.date,
 	    latitude_,
 	    longitude_,
-	    data.offsetMinutes
+	    tz,
+	    usePSRAMBuffers_,
+	    *this
 	);
-	return buildSunCycleResult(minutes, data.offsetMinutes, data.date, *this);
 }
 
 bool ESPDate::isDay() const {

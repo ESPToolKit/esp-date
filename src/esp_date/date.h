@@ -75,6 +75,7 @@ class ESPDate {
   public:
 	using NtpSyncCallback = void (*)(const DateTime &syncedAtUtc);
 	using NtpSyncCallable = std::function<void(const DateTime &syncedAtUtc)>;
+	using NtpSyncListenerId = uint32_t;
 
 	ESPDate();
 	~ESPDate();
@@ -103,6 +104,8 @@ class ESPDate {
 	// Returns the last SNTP sync timestamp (UTC epoch-backed DateTime).
 	// When hasLastNtpSync() is false this returns DateTime{}.
 	DateTime lastNtpSync() const;
+	NtpSyncListenerId addNtpSyncListener(const NtpSyncCallable &listener);
+	bool removeNtpSyncListener(NtpSyncListenerId id);
 	// Triggers an immediate NTP sync with the configured server list.
 	// Returns false when no NTP server is configured or SNTP runtime support is unavailable.
 	bool syncNTP();
@@ -307,6 +310,7 @@ class ESPDate {
 	static void handleSntpSync(struct timeval *tv);
 #endif
 #endif
+	void dispatchNtpSync(const DateTime &syncedAtUtc);
 	void setNtpSyncCallbackCallable(const NtpSyncCallable &callback);
 	bool applyNtpConfig() const;
 	bool hasAnyNtpServerConfigured() const;
@@ -326,9 +330,21 @@ class ESPDate {
 	bool hasLastNtpSync_ = false;
 	NtpSyncCallback ntpSyncCallback_ = nullptr;
 	NtpSyncCallable ntpSyncCallbackCallable_;
+	struct NtpSyncListenerSlot {
+		NtpSyncListenerId id = 0;
+		NtpSyncCallable listener{};
+	};
+	static constexpr size_t kMaxNtpSyncListeners = 4;
+	NtpSyncListenerSlot ntpSyncListeners_[kMaxNtpSyncListeners]{};
+	NtpSyncListenerId nextNtpSyncListenerId_ = 1;
 	static NtpSyncCallback activeNtpSyncCallback_;
 	static NtpSyncCallable activeNtpSyncCallbackCallable_;
 	static ESPDate *activeNtpSyncOwner_;
 	bool hasLocation_ = false;
 	bool initialized_ = false;
+
+  public:
+	void _testDispatchNtpSync(const DateTime &syncedAtUtc) {
+		dispatchNtpSync(syncedAtUtc);
+	}
 };

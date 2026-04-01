@@ -71,16 +71,7 @@ void ESPDate::handleSntpSync(struct timeval *tv) {
 	}
 	const DateTime syncedAtUtc{syncedEpoch};
 	if (activeNtpSyncOwner_) {
-		activeNtpSyncOwner_->lastNtpSync_ = syncedAtUtc;
-		activeNtpSyncOwner_->hasLastNtpSync_ = true;
-	}
-
-	if (activeNtpSyncCallbackCallable_) {
-		activeNtpSyncCallbackCallable_(syncedAtUtc);
-		return;
-	}
-	if (activeNtpSyncCallback_) {
-		activeNtpSyncCallback_(syncedAtUtc);
+		activeNtpSyncOwner_->dispatchNtpSync(syncedAtUtc);
 	}
 }
 #endif
@@ -202,6 +193,11 @@ void ESPDate::deinit() {
 	ntpSyncCallbackCallable_ = NtpSyncCallable{};
 	hasLastNtpSync_ = false;
 	lastNtpSync_ = DateTime{};
+	nextNtpSyncListenerId_ = 1;
+	for (size_t i = 0; i < kMaxNtpSyncListeners; ++i) {
+		ntpSyncListeners_[i].id = 0;
+		ntpSyncListeners_[i].listener = NtpSyncCallable{};
+	}
 	hasLocation_ = false;
 	latitude_ = 0.0f;
 	longitude_ = 0.0f;
@@ -307,8 +303,60 @@ DateTime ESPDate::lastNtpSync() const {
 	return lastNtpSync_;
 }
 
+ESPDate::NtpSyncListenerId ESPDate::addNtpSyncListener(const NtpSyncCallable &listener) {
+	if (!listener) {
+		return 0;
+	}
+	for (size_t i = 0; i < kMaxNtpSyncListeners; ++i) {
+		if (ntpSyncListeners_[i].id != 0) {
+			continue;
+		}
+		NtpSyncListenerId id = nextNtpSyncListenerId_++;
+		if (id == 0) {
+			id = nextNtpSyncListenerId_++;
+		}
+		ntpSyncListeners_[i].id = id;
+		ntpSyncListeners_[i].listener = listener;
+		return id;
+	}
+	return 0;
+}
+
+bool ESPDate::removeNtpSyncListener(NtpSyncListenerId id) {
+	if (id == 0) {
+		return false;
+	}
+	for (size_t i = 0; i < kMaxNtpSyncListeners; ++i) {
+		if (ntpSyncListeners_[i].id != id) {
+			continue;
+		}
+		ntpSyncListeners_[i].id = 0;
+		ntpSyncListeners_[i].listener = NtpSyncCallable{};
+		return true;
+	}
+	return false;
+}
+
 bool ESPDate::syncNTP() {
 	return applyNtpConfig();
+}
+
+void ESPDate::dispatchNtpSync(const DateTime &syncedAtUtc) {
+	lastNtpSync_ = syncedAtUtc;
+	hasLastNtpSync_ = true;
+
+	if (activeNtpSyncCallbackCallable_) {
+		activeNtpSyncCallbackCallable_(syncedAtUtc);
+	} else if (activeNtpSyncCallback_) {
+		activeNtpSyncCallback_(syncedAtUtc);
+	}
+
+	for (size_t i = 0; i < kMaxNtpSyncListeners; ++i) {
+		if (!ntpSyncListeners_[i].listener) {
+			continue;
+		}
+		ntpSyncListeners_[i].listener(syncedAtUtc);
+	}
 }
 
 bool ESPDate::hasAnyNtpServerConfigured() const {

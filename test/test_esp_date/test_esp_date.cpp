@@ -20,6 +20,7 @@
 ESPDate date;
 static const float kBudapestLat = 47.4979f;
 static const float kBudapestLon = 19.0402f;
+static const char *kBudapestTz = "CET-1CEST,M3.5.0/2,M10.5.0/3";
 
 static bool expected_sync_result_with_any_ntp_server() {
 #if TEST_ESPDATE_HAS_CONFIG_TZ_TIME
@@ -152,7 +153,7 @@ static void test_next_daily_and_weekday_local() {
 
 static void test_sunrise_config_matches_manual() {
 	ESPDate configured;
-	configured.init(ESPDateConfig{kBudapestLat, kBudapestLon, "CET-1CEST,M3.5.0/2,M10.5.0/3"});
+	configured.init(ESPDateConfig{kBudapestLat, kBudapestLon, kBudapestTz});
 	DateTime day = configured.fromUtc(2024, 6, 1);
 
 	SunCycleResult cfgRise = configured.sunrise(day);
@@ -173,6 +174,67 @@ static void test_sunrise_config_matches_manual() {
 
 	setenv("TZ", "UTC", 1);
 	tzset();
+}
+
+static void assert_sun_cycle_is_stable_for_transition_day(
+    const DateTime &beforeTransitionUtc,
+    const DateTime &afterTransitionUtc,
+    int expectedOffsetMinutes
+) {
+	ESPDate configured;
+	configured.init(ESPDateConfig{kBudapestLat, kBudapestLon, kBudapestTz});
+
+	SunCycleResult cfgRiseBefore = configured.sunrise(beforeTransitionUtc);
+	SunCycleResult cfgRiseAfter = configured.sunrise(afterTransitionUtc);
+	SunCycleResult cfgSetBefore = configured.sunset(beforeTransitionUtc);
+	SunCycleResult cfgSetAfter = configured.sunset(afterTransitionUtc);
+	SunCycleResult explicitRiseBefore =
+	    configured.sunrise(kBudapestLat, kBudapestLon, kBudapestTz, beforeTransitionUtc);
+	SunCycleResult explicitRiseAfter =
+	    configured.sunrise(kBudapestLat, kBudapestLon, kBudapestTz, afterTransitionUtc);
+	SunCycleResult explicitSetBefore =
+	    configured.sunset(kBudapestLat, kBudapestLon, kBudapestTz, beforeTransitionUtc);
+	SunCycleResult explicitSetAfter =
+	    configured.sunset(kBudapestLat, kBudapestLon, kBudapestTz, afterTransitionUtc);
+
+	TEST_ASSERT_TRUE(cfgRiseBefore.ok);
+	TEST_ASSERT_TRUE(cfgRiseAfter.ok);
+	TEST_ASSERT_TRUE(cfgSetBefore.ok);
+	TEST_ASSERT_TRUE(cfgSetAfter.ok);
+	TEST_ASSERT_TRUE(explicitRiseBefore.ok);
+	TEST_ASSERT_TRUE(explicitRiseAfter.ok);
+	TEST_ASSERT_TRUE(explicitSetBefore.ok);
+	TEST_ASSERT_TRUE(explicitSetAfter.ok);
+
+	TEST_ASSERT_TRUE(configured.isEqual(cfgRiseBefore.value, cfgRiseAfter.value));
+	TEST_ASSERT_TRUE(configured.isEqual(cfgSetBefore.value, cfgSetAfter.value));
+	TEST_ASSERT_TRUE(configured.isEqual(cfgRiseBefore.value, explicitRiseBefore.value));
+	TEST_ASSERT_TRUE(configured.isEqual(cfgRiseAfter.value, explicitRiseAfter.value));
+	TEST_ASSERT_TRUE(configured.isEqual(cfgSetBefore.value, explicitSetBefore.value));
+	TEST_ASSERT_TRUE(configured.isEqual(cfgSetAfter.value, explicitSetAfter.value));
+
+	LocalDateTime riseLocal = configured.toLocal(cfgRiseBefore.value, kBudapestTz);
+	LocalDateTime setLocal = configured.toLocal(cfgSetBefore.value, kBudapestTz);
+	TEST_ASSERT_TRUE(riseLocal.ok);
+	TEST_ASSERT_TRUE(setLocal.ok);
+	TEST_ASSERT_EQUAL(expectedOffsetMinutes, riseLocal.offsetMinutes);
+	TEST_ASSERT_EQUAL(expectedOffsetMinutes, setLocal.offsetMinutes);
+}
+
+static void test_sunrise_and_sunset_stable_across_spring_forward_transition() {
+	assert_sun_cycle_is_stable_for_transition_day(
+	    date.fromUtc(2026, 3, 29, 0, 30, 0),
+	    date.fromUtc(2026, 3, 29, 2, 30, 0),
+	    120
+	);
+}
+
+static void test_sunrise_and_sunset_stable_across_fall_back_transition() {
+	assert_sun_cycle_is_stable_for_transition_day(
+	    date.fromUtc(2026, 10, 25, 0, 30, 0),
+	    date.fromUtc(2026, 10, 25, 2, 30, 0),
+	    60
+	);
 }
 
 static void test_is_day_helpers() {
@@ -337,6 +399,63 @@ static void test_ntp_callback_registration_supports_member_binding() {
 	TEST_ASSERT_EQUAL(0, observer.callCount); // registration-only API coverage
 }
 
+static void test_ntp_listener_fanout_and_removal() {
+	ESPDate tracker;
+	tracker.init(ESPDateConfig{0.0f, 0.0f, "UTC0", nullptr});
+
+	struct ListenerState {
+		int primaryCalls = 0;
+		int listenerACalls = 0;
+		int listenerBCalls = 0;
+		int64_t lastSeenSyncEpoch = 0;
+		std::string order{};
+	} state;
+
+	tracker.setNtpSyncCallback([&](const DateTime &syncedAtUtc) {
+		state.primaryCalls++;
+		state.lastSeenSyncEpoch = tracker.lastNtpSync().epochSeconds;
+		state.order.push_back('P');
+		TEST_ASSERT_EQUAL_INT64(syncedAtUtc.epochSeconds, tracker.lastNtpSync().epochSeconds);
+	});
+	const ESPDate::NtpSyncListenerId listenerA = tracker.addNtpSyncListener([&](const DateTime &) {
+		state.listenerACalls++;
+		state.order.push_back('A');
+	});
+	const ESPDate::NtpSyncListenerId listenerB = tracker.addNtpSyncListener([&](const DateTime &) {
+		state.listenerBCalls++;
+		state.order.push_back('B');
+	});
+
+	TEST_ASSERT_TRUE(listenerA != 0);
+	TEST_ASSERT_TRUE(listenerB != 0);
+	TEST_ASSERT_EQUAL(0U, tracker.addNtpSyncListener(ESPDate::NtpSyncCallable{}));
+
+	DateTime firstSync = tracker.fromUtc(2026, 1, 2, 3, 4, 5);
+	tracker._testDispatchNtpSync(firstSync);
+
+	TEST_ASSERT_TRUE(tracker.hasLastNtpSync());
+	TEST_ASSERT_EQUAL_INT64(firstSync.epochSeconds, tracker.lastNtpSync().epochSeconds);
+	TEST_ASSERT_EQUAL_INT64(firstSync.epochSeconds, state.lastSeenSyncEpoch);
+	TEST_ASSERT_EQUAL(1, state.primaryCalls);
+	TEST_ASSERT_EQUAL(1, state.listenerACalls);
+	TEST_ASSERT_EQUAL(1, state.listenerBCalls);
+	TEST_ASSERT_EQUAL_STRING("PAB", state.order.c_str());
+
+	TEST_ASSERT_TRUE(tracker.removeNtpSyncListener(listenerA));
+	TEST_ASSERT_FALSE(tracker.removeNtpSyncListener(listenerA));
+	state.order.clear();
+
+	DateTime secondSync = tracker.fromUtc(2026, 1, 2, 4, 4, 5);
+	tracker._testDispatchNtpSync(secondSync);
+
+	TEST_ASSERT_EQUAL_INT64(secondSync.epochSeconds, tracker.lastNtpSync().epochSeconds);
+	TEST_ASSERT_EQUAL(2, state.primaryCalls);
+	TEST_ASSERT_EQUAL(1, state.listenerACalls);
+	TEST_ASSERT_EQUAL(2, state.listenerBCalls);
+	TEST_ASSERT_EQUAL_STRING("PB", state.order.c_str());
+	tracker.setNtpSyncCallback(static_cast<ESPDate::NtpSyncCallback>(nullptr));
+}
+
 static void test_ntp_sync_interval_setter_accepts_default() {
 	TEST_ASSERT_TRUE(date.setNtpSyncIntervalMs(0));
 }
@@ -433,6 +552,8 @@ void setup() {
 	RUN_TEST(test_start_of_year_helpers);
 	RUN_TEST(test_next_daily_and_weekday_local);
 	RUN_TEST(test_sunrise_config_matches_manual);
+	RUN_TEST(test_sunrise_and_sunset_stable_across_spring_forward_transition);
+	RUN_TEST(test_sunrise_and_sunset_stable_across_fall_back_transition);
 	RUN_TEST(test_is_day_helpers);
 	RUN_TEST(test_is_dst_active_with_timezone_string);
 	RUN_TEST(test_is_dst_active_with_configured_timezone);
@@ -443,6 +564,7 @@ void setup() {
 	RUN_TEST(test_sync_ntp_accepts_secondary_or_tertiary_server_only);
 	RUN_TEST(test_sync_ntp_with_three_servers_matches_single_server_behavior);
 	RUN_TEST(test_ntp_callback_registration_supports_member_binding);
+	RUN_TEST(test_ntp_listener_fanout_and_removal);
 	RUN_TEST(test_ntp_sync_interval_setter_accepts_default);
 	RUN_TEST(test_last_ntp_sync_defaults_to_empty);
 	RUN_TEST(test_string_helpers_for_datetime_and_local_datetime);

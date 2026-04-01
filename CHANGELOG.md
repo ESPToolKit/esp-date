@@ -21,6 +21,7 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 - Added `lastNtpSyncStringLocal/Utc` helpers (buffer + `std::string`) to serialize the last NTP sync timestamp directly.
 - Added direct `DateTime::utcString/localString` and `LocalDateTime::localString` methods so standalone values can be formatted without an `ESPDate` round-trip.
 - Added focused example sketches: `examples/string_helpers` and `examples/ntp_sync_tracking`.
+- Added additive NTP sync listeners via `addNtpSyncListener(...)` / `removeNtpSyncListener(...)` so multiple consumers can observe sync events without replacing the primary callback.
 
 ### Changed
 - Replaced the `ESPDateConfig` constructor with an explicit `init(const ESPDateConfig&)` so configuration happens after the Arduino runtime is alive, avoiding early SNTP watchdog resets on some boards.
@@ -30,6 +31,7 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 - Restored builds by adding the missing internal `utils.h` helpers referenced by the sun/scheduler code paths.
 - Resolved ambiguous `setNtpSyncCallback(...)` overload selection for non-capturing lambdas on ESP32 toolchains.
 - Added `ESPDate::deinit()` and destructor cleanup so a destroyed active instance releases SNTP callback ownership instead of leaving stale global callback state.
+- Sunrise/sunset now resolve UTC results from the event's local wall-clock time instead of the query timestamp offset, which keeps DST transition days stable before and after the clock change.
 
 ## [1.0.1] - 2025-12-09
 ### Added

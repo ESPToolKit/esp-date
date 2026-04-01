@@ -16,11 +16,11 @@ ESPDate is a tiny C++17 helper for ESP32 projects that makes working with dates 
 - **Formatting / parsing**: ISO-8601 and `YYYY-MM-DD HH:MM:SS` helpers, plus `strftime`-style patterns for UTC or local time.
 - **String helpers**: embedded-safe buffer methods and `std::string` convenience wrappers for `DateTime`, `LocalDateTime`, `nowUtc`, and `nowLocal`.
 - **Direct value formatting**: `DateTime::localString/utcString` and `LocalDateTime::localString` let individual values format themselves.
-- **Sunrise / sunset**: compute daily sun times from lat/lon using numeric offsets or POSIX TZ strings (auto-DST aware).
+- **Sunrise / sunset**: compute daily sun times from lat/lon using numeric offsets or POSIX TZ strings (auto-DST aware, resolved at the event time on DST transition days).
 - **DST detection**: `isDstActive` reports whether daylight saving time applies using the stored TZ, an explicit POSIX TZ string, or the current system TZ.
 - **Moon phase**: `moonPhase` returns the current lunar phase angle and illumination fraction for any moment.
 - **Optional NTP bootstrap**: call `init` with `ESPDateConfig` containing `timeZone` and at least one NTP server (`ntpServer`, optional `ntpServer2`/`ntpServer3`) to set TZ and start SNTP after Arduino/WiFi is ready.
-- **NTP sync callback + manual re-sync**: register `setNtpSyncCallback(...)` with a function, lambda, or `std::bind`, call `syncNTP()` anytime to trigger an immediate refresh, and optionally override SNTP interval via `ntpSyncIntervalMs` / `setNtpSyncIntervalMs(...)`.
+- **NTP sync callback + listeners + manual re-sync**: register `setNtpSyncCallback(...)` plus additive `addNtpSyncListener(...)` observers, call `syncNTP()` anytime to trigger an immediate refresh, and optionally override SNTP interval via `ntpSyncIntervalMs` / `setNtpSyncIntervalMs(...)`.
 - **Optional PSRAM-backed config/state buffers**: `ESPDateConfig::usePSRAMBuffers` routes ESPDate-owned text state (timezone/NTP/scoped TZ restore buffers) through `ESPBufferManager` with automatic fallback.
 - **Explicit lifecycle cleanup**: `deinit()` unregisters ESPDate-owned SNTP callback hooks, clears runtime config buffers, and is safe to call repeatedly; the destructor calls it automatically.
 - **Init-state introspection**: `isInitialized()` reports whether `init(...)` has been called without a matching `deinit()`.
@@ -35,6 +35,7 @@ ESPDate does not configure SNTP by default. Call `init` with a POSIX TZ string p
 `syncNTP()` returns `true` only when one or more NTP servers are configured and the runtime supports `configTzTime`.
 SNTP exposes a system-level sync hook, so the last `setNtpSyncCallback(...)` registration is the active callback.
 For the same reason, `lastNtpSync()` is tracked on the currently active `ESPDate` instance.
+`addNtpSyncListener(...)` attaches extra observers on that active instance without replacing the primary callback; use the returned token with `removeNtpSyncListener(...)` to detach them.
 Example member-method binding style:
 `date.setNtpSyncCallback(std::bind(&App::handleNTPSync, this, std::placeholders::_1));`
 Set interval from config or at runtime:
@@ -160,7 +161,7 @@ date.formatLocal(when, ESPDateFormat::DateTime, buf, sizeof(buf));
 Serial.printf("Scheduled for local time: %s\n", buf);
 ```
 
-Sunrise/sunset use your configured TZ (or system TZ) to compute the correct local event, but they return a UTC-backed `DateTime`. Use `formatLocal`/`toLocal` to display those events in local time.
+Sunrise/sunset use your configured TZ (or system TZ) to compute the correct local event, but they return a UTC-backed `DateTime`. Use `formatLocal`/`toLocal` to display those events in local time. On DST transition days, ESPDate resolves the UTC result from the event's local wall-clock time, so sunrise/sunset remain stable for the whole local day even if you query before and after the clock change.
 
 ## Date & Time Model
 `DateTime` is a small value type representing a moment in time, backed by seconds since the Unix epoch:
@@ -212,6 +213,8 @@ public:
     bool setNtpSyncIntervalMs(uint32_t intervalMs);
     bool hasLastNtpSync() const;
     DateTime lastNtpSync() const;
+    NtpSyncListenerId addNtpSyncListener(const NtpSyncCallable &listener);
+    bool removeNtpSyncListener(NtpSyncListenerId id);
     bool syncNTP();
 
     bool dateTimeToStringUtc(const DateTime &dt, char *outBuffer, size_t outSize, ESPDateFormat style = ESPDateFormat::DateTime) const;
