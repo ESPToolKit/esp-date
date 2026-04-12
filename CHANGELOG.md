@@ -32,6 +32,7 @@ The format follows Keep a Changelog and the project adheres to Semantic Versioni
 - Resolved ambiguous `setNtpSyncCallback(...)` overload selection for non-capturing lambdas on ESP32 toolchains.
 - Added `ESPDate::deinit()` and destructor cleanup so a destroyed active instance releases SNTP callback ownership instead of leaving stale global callback state.
 - Sunrise/sunset now resolve UTC results from the event's local wall-clock time instead of the query timestamp offset, which keeps DST transition days stable before and after the clock change.
+- CI now pins PIOArduino Core to `v6.1.19` and installs the ESP32 platform via `pio pkg install`, restoring PlatformIO compatibility with the current `platform-espressif32` package.
 
 ## [1.0.1] - 2025-12-09
 ### Added
